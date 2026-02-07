@@ -1,0 +1,1015 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Time Scheduler</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 24px;
+            color: #333;
+            margin-bottom: 16px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+            flex-wrap: wrap;
+        }
+
+        .search-container {
+            position: relative;
+            flex: 1;
+            min-width: 250px;
+            max-width: 400px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 10px 14px;
+            font-size: 14px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .search-input:focus {
+            border-color: #0066cc;
+        }
+
+        .autocomplete-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            max-height: 300px;
+            overflow-y: auto;
+            z-index: 100;
+            display: none;
+        }
+
+        .autocomplete-dropdown.visible {
+            display: block;
+        }
+
+        .autocomplete-item {
+            padding: 10px 14px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .autocomplete-item:last-child {
+            border-bottom: none;
+        }
+
+        .autocomplete-item:hover {
+            background: #f0f7ff;
+        }
+
+        .autocomplete-item-name {
+            font-weight: 500;
+            color: #333;
+        }
+
+        .autocomplete-item-tz {
+            font-size: 12px;
+            color: #666;
+            margin-top: 2px;
+        }
+
+        .autocomplete-item-time {
+            font-size: 14px;
+            color: #0066cc;
+            font-weight: 500;
+        }
+
+        .date-picker {
+            padding: 10px 14px;
+            font-size: 14px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .date-picker:focus {
+            border-color: #0066cc;
+        }
+
+        .timezone-grid {
+            margin-top: 24px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .timezone-row {
+            display: flex;
+            border-bottom: 1px solid #eee;
+        }
+
+        .timezone-row:last-child {
+            border-bottom: none;
+        }
+
+        .timezone-info {
+            width: 200px;
+            min-width: 200px;
+            padding: 12px;
+            background: #fafafa;
+            border-right: 1px solid #eee;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            position: relative;
+        }
+
+        .timezone-offset {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+
+        .timezone-name {
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .timezone-abbr {
+            font-size: 12px;
+            color: #888;
+            margin-left: 6px;
+        }
+
+        .timezone-current-time {
+            font-size: 13px;
+            color: #555;
+            margin-top: 4px;
+        }
+
+        .remove-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 20px;
+            height: 20px;
+            border: none;
+            background: #ddd;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 12px;
+            line-height: 1;
+            color: #666;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .remove-btn:hover {
+            background: #ff6b6b;
+            color: white;
+        }
+
+        .hour-grid {
+            display: flex;
+            flex: 1;
+            overflow-x: auto;
+        }
+
+        .hour-cell {
+            min-width: 40px;
+            width: 40px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            font-weight: 500;
+            border-right: 1px solid #eee;
+            position: relative;
+            cursor: default;
+        }
+
+        .hour-cell:last-child {
+            border-right: none;
+        }
+
+        .hour-cell.work-hour {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .hour-cell.non-work-hour {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .hour-cell .date-marker {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            font-size: 9px;
+            color: #666;
+            background: rgba(255,255,255,0.8);
+            padding: 1px 3px;
+            border-radius: 2px;
+        }
+
+        .hour-cell[title] {
+            cursor: help;
+        }
+
+        .current-time-line {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #ff0000;
+            z-index: 50;
+            pointer-events: none;
+        }
+
+        .current-time-line::before {
+            content: '';
+            position: absolute;
+            top: -4px;
+            left: -4px;
+            width: 10px;
+            height: 10px;
+            background: #ff0000;
+            border-radius: 50%;
+        }
+
+        .empty-state {
+            padding: 60px 20px;
+            text-align: center;
+            color: #666;
+        }
+
+        .empty-state p {
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+
+        .empty-state small {
+            color: #999;
+        }
+
+        @media (max-width: 768px) {
+            .timezone-info {
+                width: 150px;
+                min-width: 150px;
+            }
+
+            .hour-cell {
+                min-width: 35px;
+                width: 35px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1 data-testid="app-title">Time Scheduler</h1>
+            <div class="controls">
+                <div class="search-container">
+                    <input
+                        type="text"
+                        class="search-input"
+                        data-testid="timezone-search"
+                        placeholder="Search city or timezone (e.g., New York, PST, Europe/London)"
+                    >
+                    <div class="autocomplete-dropdown" data-testid="autocomplete-dropdown"></div>
+                </div>
+                <input
+                    type="date"
+                    class="date-picker"
+                    data-testid="date-picker"
+                >
+            </div>
+        </header>
+        <div class="timezone-grid" data-testid="timezone-grid">
+            <div class="empty-state" data-testid="empty-state">
+                <p>No timezones added yet</p>
+                <small>Search for a city or timezone to get started</small>
+            </div>
+        </div>
+        <div class="current-time-line" data-testid="current-time-line" style="display: none;"></div>
+    </div>
+
+    <script>
+        // ==================== Timezone Data Module ====================
+        const TimezoneData = (() => {
+            // Major cities mapped to IANA timezone names
+            const cityToTimezone = {
+                // Americas
+                'New York': 'America/New_York',
+                'Los Angeles': 'America/Los_Angeles',
+                'Chicago': 'America/Chicago',
+                'Houston': 'America/Chicago',
+                'Phoenix': 'America/Phoenix',
+                'Philadelphia': 'America/New_York',
+                'San Antonio': 'America/Chicago',
+                'San Diego': 'America/Los_Angeles',
+                'Dallas': 'America/Chicago',
+                'San Jose': 'America/Los_Angeles',
+                'Austin': 'America/Chicago',
+                'San Francisco': 'America/Los_Angeles',
+                'Seattle': 'America/Los_Angeles',
+                'Denver': 'America/Denver',
+                'Boston': 'America/New_York',
+                'Miami': 'America/New_York',
+                'Atlanta': 'America/New_York',
+                'Las Vegas': 'America/Los_Angeles',
+                'Portland': 'America/Los_Angeles',
+                'Detroit': 'America/Detroit',
+                'Minneapolis': 'America/Chicago',
+                'Toronto': 'America/Toronto',
+                'Vancouver': 'America/Vancouver',
+                'Montreal': 'America/Montreal',
+                'Calgary': 'America/Edmonton',
+                'Ottawa': 'America/Toronto',
+                'Mexico City': 'America/Mexico_City',
+                'Guadalajara': 'America/Mexico_City',
+                'Monterrey': 'America/Monterrey',
+                'Sao Paulo': 'America/Sao_Paulo',
+                'Rio de Janeiro': 'America/Sao_Paulo',
+                'Buenos Aires': 'America/Argentina/Buenos_Aires',
+                'Lima': 'America/Lima',
+                'Bogota': 'America/Bogota',
+                'Santiago': 'America/Santiago',
+                'Caracas': 'America/Caracas',
+                'Havana': 'America/Havana',
+                'Panama City': 'America/Panama',
+                'Anchorage': 'America/Anchorage',
+                'Honolulu': 'Pacific/Honolulu',
+
+                // Europe
+                'London': 'Europe/London',
+                'Paris': 'Europe/Paris',
+                'Berlin': 'Europe/Berlin',
+                'Madrid': 'Europe/Madrid',
+                'Rome': 'Europe/Rome',
+                'Amsterdam': 'Europe/Amsterdam',
+                'Brussels': 'Europe/Brussels',
+                'Vienna': 'Europe/Vienna',
+                'Zurich': 'Europe/Zurich',
+                'Stockholm': 'Europe/Stockholm',
+                'Oslo': 'Europe/Oslo',
+                'Copenhagen': 'Europe/Copenhagen',
+                'Helsinki': 'Europe/Helsinki',
+                'Dublin': 'Europe/Dublin',
+                'Lisbon': 'Europe/Lisbon',
+                'Warsaw': 'Europe/Warsaw',
+                'Prague': 'Europe/Prague',
+                'Budapest': 'Europe/Budapest',
+                'Athens': 'Europe/Athens',
+                'Bucharest': 'Europe/Bucharest',
+                'Moscow': 'Europe/Moscow',
+                'Istanbul': 'Europe/Istanbul',
+                'Kyiv': 'Europe/Kyiv',
+                'Barcelona': 'Europe/Madrid',
+                'Munich': 'Europe/Berlin',
+                'Milan': 'Europe/Rome',
+                'Frankfurt': 'Europe/Berlin',
+                'Edinburgh': 'Europe/London',
+                'Manchester': 'Europe/London',
+
+                // Asia
+                'Tokyo': 'Asia/Tokyo',
+                'Shanghai': 'Asia/Shanghai',
+                'Beijing': 'Asia/Shanghai',
+                'Hong Kong': 'Asia/Hong_Kong',
+                'Singapore': 'Asia/Singapore',
+                'Seoul': 'Asia/Seoul',
+                'Mumbai': 'Asia/Kolkata',
+                'Delhi': 'Asia/Kolkata',
+                'Bangalore': 'Asia/Kolkata',
+                'Chennai': 'Asia/Kolkata',
+                'Kolkata': 'Asia/Kolkata',
+                'Bangkok': 'Asia/Bangkok',
+                'Jakarta': 'Asia/Jakarta',
+                'Manila': 'Asia/Manila',
+                'Kuala Lumpur': 'Asia/Kuala_Lumpur',
+                'Taipei': 'Asia/Taipei',
+                'Dubai': 'Asia/Dubai',
+                'Abu Dhabi': 'Asia/Dubai',
+                'Riyadh': 'Asia/Riyadh',
+                'Tel Aviv': 'Asia/Jerusalem',
+                'Jerusalem': 'Asia/Jerusalem',
+                'Doha': 'Asia/Qatar',
+                'Kuwait City': 'Asia/Kuwait',
+                'Karachi': 'Asia/Karachi',
+                'Dhaka': 'Asia/Dhaka',
+                'Hanoi': 'Asia/Ho_Chi_Minh',
+                'Ho Chi Minh City': 'Asia/Ho_Chi_Minh',
+                'Osaka': 'Asia/Tokyo',
+                'Shenzhen': 'Asia/Shanghai',
+                'Guangzhou': 'Asia/Shanghai',
+
+                // Africa
+                'Cairo': 'Africa/Cairo',
+                'Lagos': 'Africa/Lagos',
+                'Johannesburg': 'Africa/Johannesburg',
+                'Cape Town': 'Africa/Johannesburg',
+                'Nairobi': 'Africa/Nairobi',
+                'Casablanca': 'Africa/Casablanca',
+                'Accra': 'Africa/Accra',
+                'Addis Ababa': 'Africa/Addis_Ababa',
+                'Algiers': 'Africa/Algiers',
+                'Tunis': 'Africa/Tunis',
+
+                // Oceania
+                'Sydney': 'Australia/Sydney',
+                'Melbourne': 'Australia/Melbourne',
+                'Brisbane': 'Australia/Brisbane',
+                'Perth': 'Australia/Perth',
+                'Adelaide': 'Australia/Adelaide',
+                'Auckland': 'Pacific/Auckland',
+                'Wellington': 'Pacific/Auckland',
+                'Fiji': 'Pacific/Fiji',
+            };
+
+            // Timezone abbreviation aliases
+            const abbreviationToTimezone = {
+                'PST': 'America/Los_Angeles',
+                'PDT': 'America/Los_Angeles',
+                'MST': 'America/Denver',
+                'MDT': 'America/Denver',
+                'CST': 'America/Chicago',
+                'CDT': 'America/Chicago',
+                'EST': 'America/New_York',
+                'EDT': 'America/New_York',
+                'GMT': 'Europe/London',
+                'BST': 'Europe/London',
+                'CET': 'Europe/Paris',
+                'CEST': 'Europe/Paris',
+                'EET': 'Europe/Athens',
+                'EEST': 'Europe/Athens',
+                'WET': 'Europe/Lisbon',
+                'WEST': 'Europe/Lisbon',
+                'IST': 'Asia/Kolkata',
+                'JST': 'Asia/Tokyo',
+                'KST': 'Asia/Seoul',
+                'CST China': 'Asia/Shanghai',
+                'HKT': 'Asia/Hong_Kong',
+                'SGT': 'Asia/Singapore',
+                'AEST': 'Australia/Sydney',
+                'AEDT': 'Australia/Sydney',
+                'AWST': 'Australia/Perth',
+                'ACST': 'Australia/Adelaide',
+                'NZST': 'Pacific/Auckland',
+                'NZDT': 'Pacific/Auckland',
+                'UTC': 'UTC',
+            };
+
+            // Get all IANA timezone names
+            const getAllTimezones = () => {
+                try {
+                    return Intl.supportedValuesOf('timeZone');
+                } catch (e) {
+                    // Fallback for older browsers
+                    return Object.values(cityToTimezone);
+                }
+            };
+
+            const search = (query) => {
+                if (!query || query.length < 2) return [];
+
+                const q = query.toLowerCase();
+                const results = [];
+                const seen = new Set();
+
+                // Search cities first
+                for (const [city, tz] of Object.entries(cityToTimezone)) {
+                    if (city.toLowerCase().includes(q) && !seen.has(tz)) {
+                        results.push({ name: city, timezone: tz, type: 'city' });
+                        seen.add(tz);
+                    }
+                }
+
+                // Search abbreviations
+                for (const [abbr, tz] of Object.entries(abbreviationToTimezone)) {
+                    if (abbr.toLowerCase().includes(q) && !seen.has(tz)) {
+                        results.push({ name: abbr, timezone: tz, type: 'abbreviation' });
+                        seen.add(tz);
+                    }
+                }
+
+                // Search IANA timezone names
+                const allTz = getAllTimezones();
+                for (const tz of allTz) {
+                    if (tz.toLowerCase().includes(q) && !seen.has(tz)) {
+                        const displayName = tz.split('/').pop().replace(/_/g, ' ');
+                        results.push({ name: displayName, timezone: tz, type: 'iana' });
+                        seen.add(tz);
+                    }
+                }
+
+                return results.slice(0, 10);
+            };
+
+            return { cityToTimezone, abbreviationToTimezone, getAllTimezones, search };
+        })();
+
+        // ==================== Timezone Utils Module ====================
+        const TimezoneUtils = (() => {
+            // Helper to ensure we have a Date object
+            const toDate = (date) => {
+                if (date instanceof Date) return date;
+                if (typeof date === 'string' || typeof date === 'number') return new Date(date);
+                return new Date();
+            };
+
+            const getOffset = (timezone, date = new Date()) => {
+                const d = toDate(date);
+                const utcDate = new Date(d.toLocaleString('en-US', { timeZone: 'UTC' }));
+                const tzDate = new Date(d.toLocaleString('en-US', { timeZone: timezone }));
+                return (tzDate - utcDate) / (1000 * 60 * 60);
+            };
+
+            const formatTime = (timezone, date = new Date()) => {
+                const d = toDate(date);
+                return d.toLocaleTimeString('en-US', {
+                    timeZone: timezone,
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false
+                });
+            };
+
+            const formatDayDate = (timezone, date = new Date()) => {
+                const d = toDate(date);
+                return d.toLocaleDateString('en-US', {
+                    timeZone: timezone,
+                    weekday: 'short',
+                    day: '2-digit',
+                    month: 'short'
+                });
+            };
+
+            const getAbbreviation = (timezone, date = new Date()) => {
+                const d = toDate(date);
+                const formatted = d.toLocaleTimeString('en-US', {
+                    timeZone: timezone,
+                    timeZoneName: 'short'
+                });
+                const match = formatted.match(/[A-Z]{2,5}$/);
+                return match ? match[0] : '';
+            };
+
+            const getHourInTimezone = (date, timezone) => {
+                const d = toDate(date);
+                return parseInt(d.toLocaleTimeString('en-US', {
+                    timeZone: timezone,
+                    hour: '2-digit',
+                    hour12: false
+                }), 10);
+            };
+
+            const getDateInTimezone = (date, timezone) => {
+                const d = toDate(date);
+                return d.toLocaleDateString('en-US', {
+                    timeZone: timezone,
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit'
+                });
+            };
+
+            const formatFullDateTime = (date, timezone) => {
+                const d = toDate(date);
+                return d.toLocaleString('en-US', {
+                    timeZone: timezone,
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true
+                });
+            };
+
+            const getRelativeOffset = (timezone, referenceTimezone, date = new Date()) => {
+                const d = toDate(date);
+                const tzOffset = getOffset(timezone, d);
+                const refOffset = getOffset(referenceTimezone, d);
+                const diff = tzOffset - refOffset;
+                if (diff === 0) return '±0';
+                return diff > 0 ? `+${diff}` : `${diff}`;
+            };
+
+            return {
+                getOffset,
+                formatTime,
+                formatDayDate,
+                getAbbreviation,
+                getHourInTimezone,
+                getDateInTimezone,
+                formatFullDateTime,
+                getRelativeOffset
+            };
+        })();
+
+        // ==================== App State Module ====================
+        const AppState = (() => {
+            const STORAGE_KEY = 'timescheduler_timezones';
+
+            let state = {
+                timezones: [],
+                selectedDate: new Date(),
+                workHours: { start: 8, end: 17 }
+            };
+
+            const listeners = [];
+
+            const subscribe = (listener) => {
+                listeners.push(listener);
+                return () => {
+                    const index = listeners.indexOf(listener);
+                    if (index > -1) listeners.splice(index, 1);
+                };
+            };
+
+            const notify = () => {
+                listeners.forEach(listener => listener(state));
+            };
+
+            const loadFromStorage = () => {
+                try {
+                    const saved = localStorage.getItem(STORAGE_KEY);
+                    if (saved) {
+                        const timezones = JSON.parse(saved);
+                        state.timezones = timezones.map((tz, index) => ({
+                            ...tz,
+                            id: tz.id || `tz-${Date.now()}-${index}`
+                        }));
+                    }
+                } catch (e) {
+                    console.error('Failed to load from storage:', e);
+                }
+            };
+
+            const saveToStorage = () => {
+                try {
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.timezones));
+                } catch (e) {
+                    console.error('Failed to save to storage:', e);
+                }
+            };
+
+            const addTimezone = (name, timezone) => {
+                // Check if already added
+                if (state.timezones.some(tz => tz.timezone === timezone)) {
+                    return false;
+                }
+
+                state.timezones.push({
+                    id: `tz-${Date.now()}`,
+                    name,
+                    timezone
+                });
+                saveToStorage();
+                notify();
+                return true;
+            };
+
+            const removeTimezone = (id) => {
+                state.timezones = state.timezones.filter(tz => tz.id !== id);
+                saveToStorage();
+                notify();
+            };
+
+            const setSelectedDate = (date) => {
+                state.selectedDate = date;
+                notify();
+            };
+
+            const getState = () => state;
+
+            const getReferenceTimezone = () => {
+                return state.timezones.length > 0 ? state.timezones[0].timezone : null;
+            };
+
+            return {
+                subscribe,
+                loadFromStorage,
+                addTimezone,
+                removeTimezone,
+                setSelectedDate,
+                getState,
+                getReferenceTimezone
+            };
+        })();
+
+        // ==================== Search Component ====================
+        const SearchComponent = (() => {
+            let searchInput;
+            let dropdown;
+
+            const init = () => {
+                searchInput = document.querySelector('[data-testid="timezone-search"]');
+                dropdown = document.querySelector('[data-testid="autocomplete-dropdown"]');
+
+                searchInput.addEventListener('input', handleInput);
+                searchInput.addEventListener('keydown', handleKeydown);
+
+                // Use event delegation for dropdown clicks
+                dropdown.addEventListener('click', handleDropdownClick);
+
+                document.addEventListener('click', handleClickOutside);
+            };
+
+            const handleInput = (e) => {
+                const query = e.target.value.trim();
+                const results = TimezoneData.search(query);
+                renderDropdown(results);
+            };
+
+            const handleKeydown = (e) => {
+                if (e.key === 'Escape') {
+                    hideDropdown();
+                    searchInput.value = '';
+                }
+            };
+
+            const handleDropdownClick = (e) => {
+                // Find the autocomplete-item element (click might be on a child)
+                const item = e.target.closest('.autocomplete-item');
+                if (item) {
+                    const name = item.dataset.name;
+                    const timezone = item.dataset.timezone;
+                    if (name && timezone) {
+                        AppState.addTimezone(name, timezone);
+                        searchInput.value = '';
+                        hideDropdown();
+                    }
+                }
+            };
+
+            const handleClickOutside = (e) => {
+                if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
+                    hideDropdown();
+                }
+            };
+
+            const renderDropdown = (results) => {
+                if (results.length === 0) {
+                    hideDropdown();
+                    return;
+                }
+
+                dropdown.innerHTML = results.map(result => {
+                    const currentTime = TimezoneUtils.formatTime(result.timezone);
+                    return `
+                        <div class="autocomplete-item"
+                             data-testid="autocomplete-item"
+                             data-name="${result.name}"
+                             data-timezone="${result.timezone}">
+                            <div>
+                                <div class="autocomplete-item-name">${result.name}</div>
+                                <div class="autocomplete-item-tz">${result.timezone}</div>
+                            </div>
+                            <div class="autocomplete-item-time" data-testid="autocomplete-item-time">${currentTime}</div>
+                        </div>
+                    `;
+                }).join('');
+
+                dropdown.classList.add('visible');
+            };
+
+            const hideDropdown = () => {
+                dropdown.classList.remove('visible');
+                dropdown.innerHTML = '';
+            };
+
+            return { init };
+        })();
+
+        // ==================== Grid Renderer ====================
+        const GridRenderer = (() => {
+            let gridContainer;
+            let currentTimeLine;
+
+            const init = () => {
+                gridContainer = document.querySelector('[data-testid="timezone-grid"]');
+                currentTimeLine = document.querySelector('[data-testid="current-time-line"]');
+
+                AppState.subscribe(render);
+                render(AppState.getState());
+
+                // Update current time line every minute
+                updateCurrentTimeLine();
+                setInterval(updateCurrentTimeLine, 60000);
+
+                // Handle window resize
+                window.addEventListener('resize', updateCurrentTimeLine);
+            };
+
+            const render = (state) => {
+                if (state.timezones.length === 0) {
+                    gridContainer.innerHTML = `
+                        <div class="empty-state" data-testid="empty-state">
+                            <p>No timezones added yet</p>
+                            <small>Search for a city or timezone to get started</small>
+                        </div>
+                    `;
+                    currentTimeLine.style.display = 'none';
+                    return;
+                }
+
+                const referenceTimezone = AppState.getReferenceTimezone();
+
+                gridContainer.innerHTML = state.timezones.map(tz =>
+                    renderTimezoneRow(tz, referenceTimezone, state.selectedDate, state.workHours)
+                ).join('');
+
+                // Attach remove button handlers
+                gridContainer.querySelectorAll('.remove-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        AppState.removeTimezone(btn.dataset.id);
+                    });
+                });
+
+                updateCurrentTimeLine();
+            };
+
+            const renderTimezoneRow = (tz, referenceTimezone, selectedDate, workHours) => {
+                const now = new Date();
+                const offset = TimezoneUtils.getRelativeOffset(tz.timezone, referenceTimezone, selectedDate);
+                const abbr = TimezoneUtils.getAbbreviation(tz.timezone, selectedDate);
+                const currentTime = TimezoneUtils.formatTime(tz.timezone, now);
+                const dayDate = TimezoneUtils.formatDayDate(tz.timezone, now);
+
+                const hourCells = [];
+                const baseDate = new Date(selectedDate);
+                baseDate.setHours(0, 0, 0, 0);
+
+                // Get the date in the reference timezone for comparison
+                const refDateStr = TimezoneUtils.getDateInTimezone(baseDate, referenceTimezone);
+
+                for (let hour = 0; hour < 24; hour++) {
+                    const cellDate = new Date(baseDate);
+                    cellDate.setHours(hour);
+
+                    // Get what hour and date it is in the target timezone
+                    const tzHour = TimezoneUtils.getHourInTimezone(cellDate, tz.timezone);
+                    const tzDateStr = TimezoneUtils.getDateInTimezone(cellDate, tz.timezone);
+
+                    const isWorkHour = tzHour >= workHours.start && tzHour < workHours.end;
+                    const isDateChange = tzDateStr !== refDateStr;
+                    const tooltip = TimezoneUtils.formatFullDateTime(cellDate, tz.timezone);
+
+                    let dateMarker = '';
+                    if (isDateChange && tzHour === 0) {
+                        const shortDate = TimezoneUtils.formatDayDate(cellDate, tz.timezone);
+                        dateMarker = `<span class="date-marker" data-testid="date-marker">${shortDate.split(',')[0]}</span>`;
+                    }
+
+                    hourCells.push(`
+                        <div class="hour-cell ${isWorkHour ? 'work-hour' : 'non-work-hour'}"
+                             data-testid="hour-cell"
+                             data-hour="${tzHour}"
+                             data-work-hour="${isWorkHour}"
+                             title="${tooltip}">
+                            ${dateMarker}
+                            ${tzHour}
+                        </div>
+                    `);
+                }
+
+                return `
+                    <div class="timezone-row" data-testid="timezone-row" data-timezone="${tz.timezone}">
+                        <div class="timezone-info">
+                            <button class="remove-btn" data-testid="remove-timezone" data-id="${tz.id}">×</button>
+                            <div class="timezone-offset" data-testid="timezone-offset">${offset}</div>
+                            <div class="timezone-name">
+                                ${tz.name}
+                                <span class="timezone-abbr" data-testid="timezone-abbr">${abbr}</span>
+                            </div>
+                            <div class="timezone-current-time" data-testid="timezone-current-time">
+                                ${currentTime} · ${dayDate}
+                            </div>
+                        </div>
+                        <div class="hour-grid" data-testid="hour-grid">
+                            ${hourCells.join('')}
+                        </div>
+                    </div>
+                `;
+            };
+
+            const updateCurrentTimeLine = () => {
+                const state = AppState.getState();
+                if (state.timezones.length === 0) {
+                    currentTimeLine.style.display = 'none';
+                    return;
+                }
+
+                const now = new Date();
+                const selectedDate = state.selectedDate instanceof Date
+                    ? state.selectedDate
+                    : new Date(state.selectedDate);
+
+                // Check if we're viewing today
+                const today = new Date();
+                const isToday = selectedDate.toDateString() === today.toDateString();
+
+                if (!isToday) {
+                    currentTimeLine.style.display = 'none';
+                    return;
+                }
+
+                const hourGrid = gridContainer.querySelector('.hour-grid');
+                if (!hourGrid) {
+                    currentTimeLine.style.display = 'none';
+                    return;
+                }
+
+                const gridRect = hourGrid.getBoundingClientRect();
+                const timezoneInfo = gridContainer.querySelector('.timezone-info');
+                const infoWidth = timezoneInfo ? timezoneInfo.offsetWidth : 200;
+
+                const hours = now.getHours();
+                const minutes = now.getMinutes();
+                const percentOfDay = (hours + minutes / 60) / 24;
+
+                const gridWidth = gridRect.width;
+                const leftPosition = infoWidth + (percentOfDay * gridWidth);
+
+                currentTimeLine.style.display = 'block';
+                currentTimeLine.style.left = `${leftPosition}px`;
+                currentTimeLine.style.top = `${gridContainer.offsetTop}px`;
+                currentTimeLine.style.height = `${gridContainer.offsetHeight}px`;
+            };
+
+            return { init };
+        })();
+
+        // ==================== Date Picker Component ====================
+        const DatePickerComponent = (() => {
+            let datePicker;
+
+            const init = () => {
+                datePicker = document.querySelector('[data-testid="date-picker"]');
+
+                // Set initial value to today
+                const today = new Date();
+                datePicker.value = today.toISOString().split('T')[0];
+
+                datePicker.addEventListener('change', handleChange);
+            };
+
+            const handleChange = (e) => {
+                const date = new Date(e.target.value + 'T00:00:00');
+                AppState.setSelectedDate(date);
+            };
+
+            return { init };
+        })();
+
+        // ==================== Initialize App ====================
+        document.addEventListener('DOMContentLoaded', () => {
+            AppState.loadFromStorage();
+            SearchComponent.init();
+            GridRenderer.init();
+            DatePickerComponent.init();
+        });
+    </script>
+</body>
+</html>

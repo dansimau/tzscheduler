@@ -1,0 +1,15 @@
+{
+  "name": "timesched26",
+  "version": "1.0.0",
+  "description": "Time Scheduler - Timezone comparison web app",
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed",
+    "serve": "serve -l 3000 -s ."
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.41.0",
+    "serve": "^14.2.0"
+  }
+}
