@@ -136,25 +136,30 @@
             position: relative;
         }
 
-        .timezone-row {
+        .timezone-grid-wrapper {
             display: flex;
-            border-bottom: 1px solid #eee;
         }
 
-        .timezone-row:last-child {
-            border-bottom: none;
+        .timezone-info-column {
+            flex-shrink: 0;
+            background: #fafafa;
+            border-right: 1px solid #eee;
         }
 
         .timezone-info {
             width: 200px;
             min-width: 200px;
             padding: 12px;
-            background: #fafafa;
-            border-right: 1px solid #eee;
+            border-bottom: 1px solid #eee;
             display: flex;
             flex-direction: column;
             justify-content: center;
             position: relative;
+            height: 70px;
+        }
+
+        .timezone-info:last-child {
+            border-bottom: none;
         }
 
         .timezone-offset {
@@ -204,16 +209,31 @@
             color: white;
         }
 
-        .hour-grid {
-            display: flex;
+        .hour-grids-container {
             flex: 1;
             overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .hour-grids-inner {
+            display: flex;
+            flex-direction: column;
+            min-width: max-content;
+        }
+
+        .hour-grid {
+            display: flex;
+            border-bottom: 1px solid #eee;
+        }
+
+        .hour-grid:last-child {
+            border-bottom: none;
         }
 
         .hour-cell {
             min-width: 40px;
             width: 40px;
-            height: 60px;
+            height: 70px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -221,11 +241,20 @@
             font-weight: 500;
             border-right: 1px solid #eee;
             position: relative;
-            cursor: default;
+            cursor: pointer;
+            transition: opacity 0.15s;
         }
 
         .hour-cell:last-child {
             border-right: none;
+        }
+
+        .hour-cell:hover {
+            opacity: 0.8;
+        }
+
+        .hour-cell:active {
+            opacity: 0.6;
         }
 
         .hour-cell.work-hour {
@@ -238,6 +267,12 @@
             color: #721c24;
         }
 
+        .hour-cell.selected {
+            outline: 3px solid #0066cc;
+            outline-offset: -3px;
+            z-index: 10;
+        }
+
         .hour-cell .date-marker {
             position: absolute;
             top: 2px;
@@ -247,10 +282,6 @@
             background: rgba(255,255,255,0.8);
             padding: 1px 3px;
             border-radius: 2px;
-        }
-
-        .hour-cell[title] {
-            cursor: help;
         }
 
         .current-time-line {
@@ -289,15 +320,184 @@
             color: #999;
         }
 
+        /* Time Summary Modal */
+        .time-summary-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+            padding: 20px;
+        }
+
+        .time-summary-overlay.visible {
+            display: flex;
+        }
+
+        .time-summary-modal {
+            background: white;
+            border-radius: 12px;
+            max-width: 400px;
+            width: 100%;
+            max-height: 80vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .time-summary-header {
+            padding: 16px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .time-summary-header h2 {
+            font-size: 18px;
+            color: #333;
+        }
+
+        .time-summary-close {
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: #f0f0f0;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+        }
+
+        .time-summary-close:hover {
+            background: #e0e0e0;
+        }
+
+        .time-summary-content {
+            padding: 16px;
+            overflow-y: auto;
+        }
+
+        .time-summary-text {
+            font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 8px;
+            white-space: pre-wrap;
+            word-break: break-word;
+            user-select: all;
+            -webkit-user-select: all;
+        }
+
+        .time-summary-actions {
+            padding: 16px;
+            border-top: 1px solid #eee;
+            display: flex;
+            gap: 12px;
+        }
+
+        .time-summary-btn {
+            flex: 1;
+            padding: 12px 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .time-summary-btn.primary {
+            background: #0066cc;
+            color: white;
+        }
+
+        .time-summary-btn.primary:hover {
+            background: #0052a3;
+        }
+
+        .time-summary-btn.secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .time-summary-btn.secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .copy-success {
+            color: #28a745;
+            font-size: 14px;
+            text-align: center;
+            padding: 8px;
+        }
+
         @media (max-width: 768px) {
+            body {
+                padding: 12px;
+            }
+
+            h1 {
+                font-size: 20px;
+            }
+
             .timezone-info {
-                width: 150px;
-                min-width: 150px;
+                width: 120px;
+                min-width: 120px;
+                padding: 8px;
+                height: 60px;
+            }
+
+            .timezone-name {
+                font-size: 12px;
+            }
+
+            .timezone-current-time {
+                font-size: 11px;
+            }
+
+            .timezone-offset {
+                font-size: 11px;
+            }
+
+            .timezone-abbr {
+                display: none;
             }
 
             .hour-cell {
-                min-width: 35px;
-                width: 35px;
+                min-width: 36px;
+                width: 36px;
+                height: 60px;
+                font-size: 12px;
+            }
+
+            .remove-btn {
+                width: 18px;
+                height: 18px;
+                font-size: 10px;
+            }
+
+            .controls {
+                gap: 8px;
+            }
+
+            .search-container {
+                min-width: 100%;
+                max-width: 100%;
+            }
+
+            .date-picker {
+                flex: 1;
             }
         }
     </style>
@@ -330,6 +530,23 @@
             </div>
         </div>
         <div class="current-time-line" data-testid="current-time-line" style="display: none;"></div>
+    </div>
+
+    <!-- Time Summary Modal -->
+    <div class="time-summary-overlay" data-testid="time-summary-overlay">
+        <div class="time-summary-modal" data-testid="time-summary-modal">
+            <div class="time-summary-header">
+                <h2>Meeting Time</h2>
+                <button class="time-summary-close" data-testid="time-summary-close">×</button>
+            </div>
+            <div class="time-summary-content">
+                <div class="time-summary-text" data-testid="time-summary-text"></div>
+            </div>
+            <div class="time-summary-actions">
+                <button class="time-summary-btn secondary" data-testid="time-summary-close-btn">Close</button>
+                <button class="time-summary-btn primary" data-testid="time-summary-copy">Copy to Clipboard</button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -626,6 +843,23 @@
                 });
             };
 
+            const formatMeetingTime = (date, timezone, name) => {
+                const d = toDate(date);
+                const timeStr = d.toLocaleTimeString('en-US', {
+                    timeZone: timezone,
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true
+                });
+                const dateStr = d.toLocaleDateString('en-US', {
+                    timeZone: timezone,
+                    weekday: 'short',
+                    month: 'short',
+                    day: 'numeric'
+                });
+                return `${name}: ${timeStr} (${dateStr})`;
+            };
+
             const getRelativeOffset = (timezone, referenceTimezone, date = new Date()) => {
                 const d = toDate(date);
                 const tzOffset = getOffset(timezone, d);
@@ -643,6 +877,7 @@
                 getHourInTimezone,
                 getDateInTimezone,
                 formatFullDateTime,
+                formatMeetingTime,
                 getRelativeOffset
             };
         })();
@@ -654,7 +889,8 @@
             let state = {
                 timezones: [],
                 selectedDate: new Date(),
-                workHours: { start: 8, end: 17 }
+                workHours: { start: 8, end: 17 },
+                selectedHourIndex: null
             };
 
             const listeners = [];
@@ -721,6 +957,11 @@
                 notify();
             };
 
+            const setSelectedHourIndex = (index) => {
+                state.selectedHourIndex = index;
+                notify();
+            };
+
             const getState = () => state;
 
             const getReferenceTimezone = () => {
@@ -733,6 +974,7 @@
                 addTimezone,
                 removeTimezone,
                 setSelectedDate,
+                setSelectedHourIndex,
                 getState,
                 getReferenceTimezone
             };
@@ -856,9 +1098,27 @@
 
                 const referenceTimezone = AppState.getReferenceTimezone();
 
-                gridContainer.innerHTML = state.timezones.map(tz =>
-                    renderTimezoneRow(tz, referenceTimezone, state.selectedDate, state.workHours)
+                // Render with synchronized scrolling structure
+                const timezoneInfos = state.timezones.map(tz =>
+                    renderTimezoneInfo(tz, referenceTimezone, state.selectedDate)
                 ).join('');
+
+                const hourGrids = state.timezones.map((tz, tzIndex) =>
+                    renderHourGrid(tz, referenceTimezone, state.selectedDate, state.workHours, state.selectedHourIndex, tzIndex)
+                ).join('');
+
+                gridContainer.innerHTML = `
+                    <div class="timezone-grid-wrapper" data-testid="timezone-grid-wrapper">
+                        <div class="timezone-info-column" data-testid="timezone-info-column">
+                            ${timezoneInfos}
+                        </div>
+                        <div class="hour-grids-container" data-testid="hour-grids-container">
+                            <div class="hour-grids-inner" data-testid="hour-grids-inner">
+                                ${hourGrids}
+                            </div>
+                        </div>
+                    </div>
+                `;
 
                 // Attach remove button handlers
                 gridContainer.querySelectorAll('.remove-btn').forEach(btn => {
@@ -867,16 +1127,40 @@
                     });
                 });
 
+                // Attach hour cell click handlers
+                gridContainer.querySelectorAll('.hour-cell').forEach(cell => {
+                    cell.addEventListener('click', () => {
+                        const hourIndex = parseInt(cell.dataset.hourIndex, 10);
+                        TimeSummaryModal.show(hourIndex);
+                    });
+                });
+
                 updateCurrentTimeLine();
             };
 
-            const renderTimezoneRow = (tz, referenceTimezone, selectedDate, workHours) => {
+            const renderTimezoneInfo = (tz, referenceTimezone, selectedDate) => {
                 const now = new Date();
                 const offset = TimezoneUtils.getRelativeOffset(tz.timezone, referenceTimezone, selectedDate);
                 const abbr = TimezoneUtils.getAbbreviation(tz.timezone, selectedDate);
                 const currentTime = TimezoneUtils.formatTime(tz.timezone, now);
                 const dayDate = TimezoneUtils.formatDayDate(tz.timezone, now);
 
+                return `
+                    <div class="timezone-info" data-testid="timezone-info" data-timezone="${tz.timezone}">
+                        <button class="remove-btn" data-testid="remove-timezone" data-id="${tz.id}">×</button>
+                        <div class="timezone-offset" data-testid="timezone-offset">${offset}</div>
+                        <div class="timezone-name">
+                            ${tz.name}
+                            <span class="timezone-abbr" data-testid="timezone-abbr">${abbr}</span>
+                        </div>
+                        <div class="timezone-current-time" data-testid="timezone-current-time">
+                            ${currentTime} · ${dayDate}
+                        </div>
+                    </div>
+                `;
+            };
+
+            const renderHourGrid = (tz, referenceTimezone, selectedDate, workHours, selectedHourIndex, tzIndex) => {
                 const hourCells = [];
                 const baseDate = new Date(selectedDate);
                 baseDate.setHours(0, 0, 0, 0);
@@ -895,17 +1179,21 @@
                     const isWorkHour = tzHour >= workHours.start && tzHour < workHours.end;
                     const isDateChange = tzDateStr !== refDateStr;
                     const tooltip = TimezoneUtils.formatFullDateTime(cellDate, tz.timezone);
+                    const isSelected = selectedHourIndex === hour;
 
                     let dateMarker = '';
                     if (isDateChange && tzHour === 0) {
-                        const shortDate = TimezoneUtils.formatDayDate(cellDate, tz.timezone);
+                        // FIX: Correct argument order - timezone first, then date
+                        const shortDate = TimezoneUtils.formatDayDate(tz.timezone, cellDate);
                         dateMarker = `<span class="date-marker" data-testid="date-marker">${shortDate.split(',')[0]}</span>`;
                     }
 
                     hourCells.push(`
-                        <div class="hour-cell ${isWorkHour ? 'work-hour' : 'non-work-hour'}"
+                        <div class="hour-cell ${isWorkHour ? 'work-hour' : 'non-work-hour'} ${isSelected ? 'selected' : ''}"
                              data-testid="hour-cell"
                              data-hour="${tzHour}"
+                             data-hour-index="${hour}"
+                             data-tz-index="${tzIndex}"
                              data-work-hour="${isWorkHour}"
                              title="${tooltip}">
                             ${dateMarker}
@@ -915,21 +1203,8 @@
                 }
 
                 return `
-                    <div class="timezone-row" data-testid="timezone-row" data-timezone="${tz.timezone}">
-                        <div class="timezone-info">
-                            <button class="remove-btn" data-testid="remove-timezone" data-id="${tz.id}">×</button>
-                            <div class="timezone-offset" data-testid="timezone-offset">${offset}</div>
-                            <div class="timezone-name">
-                                ${tz.name}
-                                <span class="timezone-abbr" data-testid="timezone-abbr">${abbr}</span>
-                            </div>
-                            <div class="timezone-current-time" data-testid="timezone-current-time">
-                                ${currentTime} · ${dayDate}
-                            </div>
-                        </div>
-                        <div class="hour-grid" data-testid="hour-grid">
-                            ${hourCells.join('')}
-                        </div>
+                    <div class="hour-grid" data-testid="hour-grid" data-timezone="${tz.timezone}">
+                        ${hourCells.join('')}
                     </div>
                 `;
             };
@@ -955,22 +1230,35 @@
                     return;
                 }
 
-                const hourGrid = gridContainer.querySelector('.hour-grid');
-                if (!hourGrid) {
+                const hourGridsContainer = gridContainer.querySelector('.hour-grids-container');
+                if (!hourGridsContainer) {
                     currentTimeLine.style.display = 'none';
                     return;
                 }
 
-                const gridRect = hourGrid.getBoundingClientRect();
-                const timezoneInfo = gridContainer.querySelector('.timezone-info');
-                const infoWidth = timezoneInfo ? timezoneInfo.offsetWidth : 200;
+                const containerRect = hourGridsContainer.getBoundingClientRect();
+                const timezoneInfoColumn = gridContainer.querySelector('.timezone-info-column');
+                const infoWidth = timezoneInfoColumn ? timezoneInfoColumn.offsetWidth : 200;
 
                 const hours = now.getHours();
                 const minutes = now.getMinutes();
                 const percentOfDay = (hours + minutes / 60) / 24;
 
-                const gridWidth = gridRect.width;
-                const leftPosition = infoWidth + (percentOfDay * gridWidth);
+                // Get the inner width (total scrollable width)
+                const hourGridsInner = gridContainer.querySelector('.hour-grids-inner');
+                const innerWidth = hourGridsInner ? hourGridsInner.scrollWidth : containerRect.width;
+
+                // Account for scroll position
+                const scrollLeft = hourGridsContainer.scrollLeft;
+                const positionInGrid = percentOfDay * innerWidth - scrollLeft;
+
+                // Only show if visible in viewport
+                if (positionInGrid < 0 || positionInGrid > containerRect.width) {
+                    currentTimeLine.style.display = 'none';
+                    return;
+                }
+
+                const leftPosition = infoWidth + positionInGrid;
 
                 currentTimeLine.style.display = 'block';
                 currentTimeLine.style.left = `${leftPosition}px`;
@@ -978,7 +1266,83 @@
                 currentTimeLine.style.height = `${gridContainer.offsetHeight}px`;
             };
 
-            return { init };
+            return { init, updateCurrentTimeLine };
+        })();
+
+        // ==================== Time Summary Modal ====================
+        const TimeSummaryModal = (() => {
+            let overlay;
+            let textElement;
+            let copyButton;
+            let closeButton;
+            let closeBtn;
+
+            const init = () => {
+                overlay = document.querySelector('[data-testid="time-summary-overlay"]');
+                textElement = document.querySelector('[data-testid="time-summary-text"]');
+                copyButton = document.querySelector('[data-testid="time-summary-copy"]');
+                closeButton = document.querySelector('[data-testid="time-summary-close"]');
+                closeBtn = document.querySelector('[data-testid="time-summary-close-btn"]');
+
+                overlay.addEventListener('click', (e) => {
+                    if (e.target === overlay) hide();
+                });
+                closeButton.addEventListener('click', hide);
+                closeBtn.addEventListener('click', hide);
+                copyButton.addEventListener('click', copyToClipboard);
+
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape' && overlay.classList.contains('visible')) {
+                        hide();
+                    }
+                });
+            };
+
+            const show = (hourIndex) => {
+                const state = AppState.getState();
+                if (state.timezones.length === 0) return;
+
+                const baseDate = new Date(state.selectedDate);
+                baseDate.setHours(0, 0, 0, 0);
+                const cellDate = new Date(baseDate);
+                cellDate.setHours(hourIndex);
+
+                const lines = state.timezones.map(tz =>
+                    TimezoneUtils.formatMeetingTime(cellDate, tz.timezone, tz.name)
+                );
+
+                textElement.textContent = lines.join('\n');
+                overlay.classList.add('visible');
+                copyButton.textContent = 'Copy to Clipboard';
+            };
+
+            const hide = () => {
+                overlay.classList.remove('visible');
+            };
+
+            const copyToClipboard = async () => {
+                try {
+                    await navigator.clipboard.writeText(textElement.textContent);
+                    copyButton.textContent = 'Copied!';
+                    setTimeout(() => {
+                        copyButton.textContent = 'Copy to Clipboard';
+                    }, 2000);
+                } catch (e) {
+                    // Fallback for older browsers
+                    const range = document.createRange();
+                    range.selectNode(textElement);
+                    window.getSelection().removeAllRanges();
+                    window.getSelection().addRange(range);
+                    document.execCommand('copy');
+                    window.getSelection().removeAllRanges();
+                    copyButton.textContent = 'Copied!';
+                    setTimeout(() => {
+                        copyButton.textContent = 'Copy to Clipboard';
+                    }, 2000);
+                }
+            };
+
+            return { init, show, hide };
         })();
 
         // ==================== Date Picker Component ====================
@@ -1009,6 +1373,7 @@
             SearchComponent.init();
             GridRenderer.init();
             DatePickerComponent.init();
+            TimeSummaryModal.init();
         });
     </script>
 </body>

@@ -14,8 +14,8 @@ async function addTimezone(page: any, searchTerm: string) {
   await expect(item).toBeVisible();
   await item.click();
 
-  // Wait for the row to appear
-  await expect(page.getByTestId('timezone-row').first()).toBeVisible();
+  // Wait for the timezone info to appear (new structure uses timezone-info instead of timezone-row)
+  await expect(page.getByTestId('timezone-info').first()).toBeVisible();
 }
 
 test.describe('Search functionality', () => {
@@ -85,47 +85,47 @@ test.describe('Add/Remove timezones', () => {
   test('adds timezone when clicking search result', async ({ page }) => {
     await addTimezone(page, 'New York');
 
-    const timezoneRow = page.getByTestId('timezone-row');
-    await expect(timezoneRow).toBeVisible();
-    await expect(timezoneRow).toContainText('New York');
+    const timezoneInfo = page.getByTestId('timezone-info');
+    await expect(timezoneInfo).toBeVisible();
+    await expect(timezoneInfo).toContainText('New York');
   });
 
   test('adds multiple timezones', async ({ page }) => {
     await addTimezone(page, 'New York');
     await addTimezone(page, 'Tokyo');
 
-    const timezoneRows = page.getByTestId('timezone-row');
-    await expect(timezoneRows).toHaveCount(2);
+    const timezoneInfos = page.getByTestId('timezone-info');
+    await expect(timezoneInfos).toHaveCount(2);
   });
 
   test('removes timezone via remove button', async ({ page }) => {
     await addTimezone(page, 'London');
 
-    const timezoneRow = page.getByTestId('timezone-row');
-    await expect(timezoneRow).toBeVisible();
+    const timezoneInfo = page.getByTestId('timezone-info');
+    await expect(timezoneInfo).toBeVisible();
 
     // Remove it
     const removeBtn = page.getByTestId('remove-timezone');
     await removeBtn.click();
 
-    await expect(timezoneRow).not.toBeVisible();
+    await expect(timezoneInfo).not.toBeVisible();
     await expect(page.getByTestId('empty-state')).toBeVisible();
   });
 
   test('persists timezones after page reload', async ({ page }) => {
     await addTimezone(page, 'Sydney');
 
-    const timezoneRow = page.getByTestId('timezone-row');
-    await expect(timezoneRow).toBeVisible();
-    await expect(timezoneRow).toContainText('Sydney');
+    const timezoneInfo = page.getByTestId('timezone-info');
+    await expect(timezoneInfo).toBeVisible();
+    await expect(timezoneInfo).toContainText('Sydney');
 
     // Reload page
     await page.reload();
 
     // Should still be there
-    const rowAfterReload = page.getByTestId('timezone-row');
-    await expect(rowAfterReload).toBeVisible();
-    await expect(rowAfterReload).toContainText('Sydney');
+    const infoAfterReload = page.getByTestId('timezone-info');
+    await expect(infoAfterReload).toBeVisible();
+    await expect(infoAfterReload).toContainText('Sydney');
   });
 });
 
@@ -242,8 +242,8 @@ test.describe('Date change markers', () => {
 
     // The Tokyo row may have date markers depending on the reference timezone
     // Since Tokyo is many hours ahead, some cells may show different dates
-    const rows = page.getByTestId('timezone-row');
-    await expect(rows).toHaveCount(2);
+    const infos = page.getByTestId('timezone-info');
+    await expect(infos).toHaveCount(2);
 
     // Check that hour cells exist with various hours
     const hourCells = page.getByTestId('hour-cell');
@@ -274,5 +274,52 @@ test.describe('Empty state', () => {
     await addTimezone(page, 'Paris');
 
     await expect(emptyState).not.toBeVisible();
+  });
+});
+
+test.describe('Mobile behavior', () => {
+  test('synchronizes horizontal scrolling across timezone rows on small display', async ({ page }) => {
+    // Set mobile viewport
+    await page.setViewportSize({ width: 375, height: 667 });
+
+    await page.goto('/');
+    await page.evaluate(() => localStorage.clear());
+    await page.reload();
+
+    // Add multiple timezones
+    await addTimezone(page, 'New York');
+    await addTimezone(page, 'Tokyo');
+    await addTimezone(page, 'London');
+
+    // Wait for all timezone infos to be visible
+    const timezoneInfos = page.getByTestId('timezone-info');
+    await expect(timezoneInfos).toHaveCount(3);
+
+    // Get the hour grids container (shared scroll container)
+    const hourGridsContainer = page.getByTestId('hour-grids-container');
+    await expect(hourGridsContainer).toBeVisible();
+
+    // Scroll the container horizontally
+    await hourGridsContainer.evaluate((el) => {
+      el.scrollLeft = 200;
+    });
+
+    // Verify the scroll position was applied
+    const scrollLeft = await hourGridsContainer.evaluate((el) => el.scrollLeft);
+    expect(scrollLeft).toBe(200);
+
+    // Get all hour grids inside the container
+    const hourGrids = page.getByTestId('hour-grid');
+    const hourGridCount = await hourGrids.count();
+    expect(hourGridCount).toBe(3);
+
+    // Since all grids are inside the same scrolling container,
+    // they all move together when the container scrolls.
+    // Verify the container structure is correct (all grids share one scroll parent)
+    const containerHasAllGrids = await hourGridsContainer.evaluate((container) => {
+      const grids = container.querySelectorAll('[data-testid="hour-grid"]');
+      return grids.length === 3;
+    });
+    expect(containerHasAllGrids).toBe(true);
   });
 });
