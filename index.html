@@ -500,6 +500,93 @@
                 flex: 1;
             }
         }
+
+        @media (max-width: 600px) and (orientation: portrait) {
+            /* 1. Single scroll container for header + grid */
+            .timezone-grid {
+                overflow-x: auto;
+            }
+
+            .timezone-grid-wrapper {
+                flex-direction: column;
+                min-width: min-content;
+            }
+
+            /* 2. Timezone info becomes horizontal header row */
+            .timezone-info-column {
+                display: flex;
+                flex-direction: row;
+                border-right: none;
+                border-bottom: 1px solid #eee;
+            }
+
+            .timezone-info {
+                flex: 1;
+                width: auto;
+                min-width: 100px;
+                height: auto;
+                border-bottom: none;
+                border-right: 1px solid #eee;
+                text-align: center;
+                padding: 6px 4px;
+            }
+
+            .timezone-info:last-child {
+                border-right: none;
+            }
+
+            .timezone-name {
+                font-size: 11px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .timezone-offset {
+                font-size: 10px;
+            }
+
+            .timezone-current-time {
+                font-size: 10px;
+            }
+
+            /* 3. CSS Grid transpose on hour grids */
+            .hour-grids-inner {
+                display: grid;
+                grid-template-rows: repeat(24, auto);
+                grid-auto-flow: column;
+                grid-auto-columns: minmax(100px, 1fr);
+                min-width: unset;
+                column-gap: 1px;
+                background-color: #eee;
+            }
+
+            .hour-grid {
+                display: contents;
+            }
+
+            .hour-cell {
+                width: auto;
+                min-width: unset;
+                height: 36px;
+                border-right: none;
+                border-bottom: 1px solid #eee;
+            }
+
+            .hour-cell:last-child {
+                border-bottom: none;
+            }
+
+            /* 4. Overflow changes — no independent scroll, handled by .timezone-grid */
+            .hour-grids-container {
+                overflow-x: visible;
+            }
+
+            /* 5. Hide current time line */
+            .current-time-line {
+                display: none !important;
+            }
+        }
     </style>
 </head>
 <body>
