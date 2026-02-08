@@ -323,3 +323,105 @@ test.describe('Mobile behavior', () => {
     expect(containerHasAllGrids).toBe(true);
   });
 });
+
+test.describe('URL state persistence', () => {
+  test('URL loads timezones', async ({ page }) => {
+    await page.goto('/?tz=New York:America/New_York&tz=Tokyo:Asia/Tokyo');
+
+    const timezoneInfos = page.getByTestId('timezone-info');
+    await expect(timezoneInfos).toHaveCount(2);
+    await expect(timezoneInfos.nth(0)).toContainText('New York');
+    await expect(timezoneInfos.nth(1)).toContainText('Tokyo');
+  });
+
+  test('URL loads date', async ({ page }) => {
+    await page.goto('/?tz=London:Europe/London&date=2026-12-25');
+
+    const datePicker = page.getByTestId('date-picker');
+    await expect(datePicker).toHaveValue('2026-12-25');
+
+    // Current time line should be hidden (not today)
+    const currentTimeLine = page.getByTestId('current-time-line');
+    await expect(currentTimeLine).not.toBeVisible();
+  });
+
+  test('adding timezone updates URL', async ({ page }) => {
+    await page.goto('/');
+    await page.evaluate(() => localStorage.clear());
+    await page.reload();
+
+    await addTimezone(page, 'New York');
+
+    // URL should now contain the timezone
+    await expect(page).toHaveURL(/tz=New(%20|\+| )York:America\/New_York/);
+  });
+
+  test('removing timezone updates URL', async ({ page }) => {
+    await page.goto('/?tz=New York:America/New_York&tz=Tokyo:Asia/Tokyo');
+
+    const timezoneInfos = page.getByTestId('timezone-info');
+    await expect(timezoneInfos).toHaveCount(2);
+
+    // Remove the first timezone (New York)
+    const removeBtn = page.getByTestId('remove-timezone').first();
+    await removeBtn.click();
+
+    await expect(timezoneInfos).toHaveCount(1);
+
+    // URL should only contain Tokyo now
+    await expect(page).toHaveURL(/tz=Tokyo:Asia\/Tokyo/);
+    expect(page.url()).not.toContain('New_York');
+  });
+
+  test('URL takes priority over localStorage', async ({ page }) => {
+    // Set up localStorage with Tokyo
+    await page.goto('/');
+    await page.evaluate(() => {
+      localStorage.setItem('timescheduler_timezones', JSON.stringify([
+        { id: 'tz-1', name: 'Tokyo', timezone: 'Asia/Tokyo' }
+      ]));
+    });
+
+    // Navigate with URL specifying London
+    await page.goto('/?tz=London:Europe/London');
+
+    const timezoneInfos = page.getByTestId('timezone-info');
+    await expect(timezoneInfos).toHaveCount(1);
+    await expect(timezoneInfos.first()).toContainText('London');
+  });
+
+  test('bare URL falls back to localStorage', async ({ page }) => {
+    await page.goto('/');
+    await page.evaluate(() => localStorage.clear());
+    await page.reload();
+
+    // Add Sydney via search (persists to localStorage)
+    await addTimezone(page, 'Sydney');
+
+    const timezoneInfo = page.getByTestId('timezone-info');
+    await expect(timezoneInfo).toContainText('Sydney');
+
+    // Navigate to bare URL (no params)
+    await page.goto('/');
+
+    const infoAfterNav = page.getByTestId('timezone-info');
+    await expect(infoAfterNav).toBeVisible();
+    await expect(infoAfterNav).toContainText('Sydney');
+  });
+
+  test('changing date updates URL', async ({ page }) => {
+    await page.goto('/');
+    await page.evaluate(() => localStorage.clear());
+    await page.reload();
+
+    await addTimezone(page, 'New York');
+
+    const datePicker = page.getByTestId('date-picker');
+    await datePicker.evaluate((el, date) => {
+      (el as HTMLInputElement).value = date;
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    }, '2026-12-25');
+
+    await expect(page).toHaveURL(/date=2026-12-25/);
+  });
+});
