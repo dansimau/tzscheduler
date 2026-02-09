@@ -196,16 +196,20 @@ test.describe('Time display', () => {
     await expect(currentTimeLine).not.toBeVisible();
   });
 
-  test('hover tooltips show full date/time', async ({ page }) => {
+  test('hover tooltip shows time on mouseover', async ({ page }) => {
     await addTimezone(page, 'Singapore');
 
     const hourCell = page.getByTestId('hour-cell').first();
     await expect(hourCell).toBeVisible();
-    const title = await hourCell.getAttribute('title');
 
-    // Title should contain full date/time info
-    expect(title).toBeTruthy();
-    expect(title!.length).toBeGreaterThan(10);
+    // Hover over the cell center
+    const box = await hourCell.boundingBox();
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+
+    const tooltip = page.getByTestId('hover-tooltip');
+    await expect(tooltip).toBeVisible();
+    const text = await tooltip.textContent();
+    expect(text).toContain('Singapore');
   });
 
   test('shows timezone abbreviation', async ({ page }) => {
@@ -277,7 +281,261 @@ test.describe('Empty state', () => {
   });
 });
 
-test.describe('Mobile behavior - landscape', () => {
+test.describe('Hover line and 15-minute snapping', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.evaluate(() => localStorage.clear());
+    await page.reload();
+  });
+
+  test('hover line appears on mousemove over grid', async ({ page }) => {
+    await addTimezone(page, 'New York');
+    await addTimezone(page, 'Tokyo');
+
+    const hourCell = page.getByTestId('hour-cell').first();
+    const box = await hourCell.boundingBox();
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+
+    const hoverLine = page.getByTestId('hover-time-line');
+    await expect(hoverLine).toBeVisible();
+  });
+
+  test('hover line disappears on mouseleave', async ({ page }) => {
+    await addTimezone(page, 'New York');
+
+    const hourCell = page.getByTestId('hour-cell').first();
+    const box = await hourCell.boundingBox();
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+
+    const hoverLine = page.getByTestId('hover-time-line');
+    await expect(hoverLine).toBeVisible();
+
+    // Move mouse outside the grid container
+    await page.mouse.move(0, 0);
+    await expect(hoverLine).not.toBeVisible();
+  });
+
+  test('tooltip shows time in hovered timezone row', async ({ page }) => {
+    await addTimezone(page, 'New York');
+    await addTimezone(page, 'Tokyo');
+
+    // Hover over a cell in the Tokyo row (second row)
+    const hourGrids = page.getByTestId('hour-grid');
+    const tokyoRow = hourGrids.nth(1);
+    const tokyoCell = tokyoRow.locator('[data-testid="hour-cell"]').first();
+    const box = await tokyoCell.boundingBox();
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+
+    const tooltip = page.getByTestId('hover-tooltip');
+    await expect(tooltip).toBeVisible();
+    const text = await tooltip.textContent();
+    expect(text).toContain('Tokyo');
+  });
+
+  test('hover line snaps to 15-minute intervals', async ({ page }) => {
+    await addTimezone(page, 'New York');
+
+    const hourCell = page.getByTestId('hour-cell').nth(5);
+    const box = await hourCell.boundingBox();
+
+    // Hover at 25% of cell width (should snap to :15)
+    await page.mouse.move(box!.x + box!.width * 0.25, box!.y + box!.height / 2);
+    const hoverLine = page.getByTestId('hover-time-line');
+    await expect(hoverLine).toBeVisible();
+    const left1 = await hoverLine.evaluate((el) => el.style.left);
+
+    // Hover at 75% of same cell (should snap to :45)
+    await page.mouse.move(box!.x + box!.width * 0.75, box!.y + box!.height / 2);
+    const left2 = await hoverLine.evaluate((el) => el.style.left);
+
+    expect(left1).not.toBe(left2);
+  });
+
+  test('click at 15-minute position opens modal with correct time', async ({ page }) => {
+    await addTimezone(page, 'UTC');
+
+    // Click at ~50% of the hour-8 cell (should be :30)
+    const hourCell = page.locator('[data-testid="hour-cell"][data-hour-index="8"]').first();
+    const box = await hourCell.boundingBox();
+    await page.mouse.click(box!.x + box!.width * 0.5, box!.y + box!.height / 2);
+
+    const overlay = page.getByTestId('time-summary-overlay');
+    await expect(overlay).toBeVisible();
+
+    const summaryText = page.getByTestId('time-summary-text');
+    const text = await summaryText.textContent();
+    expect(text).toContain(':30');
+  });
+
+  test('click at cell start opens modal at :00', async ({ page }) => {
+    await addTimezone(page, 'UTC');
+
+    const hourCell = page.locator('[data-testid="hour-cell"][data-hour-index="10"]').first();
+    const box = await hourCell.boundingBox();
+    // Click at the very left edge of the cell
+    await page.mouse.click(box!.x + 2, box!.y + box!.height / 2);
+
+    const overlay = page.getByTestId('time-summary-overlay');
+    await expect(overlay).toBeVisible();
+
+    const summaryText = page.getByTestId('time-summary-text');
+    const text = await summaryText.textContent();
+    expect(text).toContain(':00');
+  });
+});
+
+test.describe('Touch interactions', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.evaluate(() => localStorage.clear());
+    await page.reload();
+  });
+
+  test('touch hold shows hover line', async ({ page }) => {
+    // Use landscape to test horizontal touch behavior
+    await page.setViewportSize({ width: 667, height: 375 });
+
+    await addTimezone(page, 'New York');
+
+    const hourCell = page.getByTestId('hour-cell').nth(5);
+    const box = await hourCell.boundingBox();
+    const x = box!.x + box!.width / 2;
+    const y = box!.y + box!.height / 2;
+
+    // Dispatch touchstart on the container
+    await page.evaluate(({ x, y }) => {
+      const container = document.querySelector('.hour-grids-container')!;
+      const touch = new Touch({ identifier: 1, target: container, clientX: x, clientY: y });
+      container.dispatchEvent(new TouchEvent('touchstart', { touches: [touch], changedTouches: [touch], bubbles: true }));
+    }, { x, y });
+
+    // Wait past hold threshold
+    await page.waitForTimeout(350);
+
+    const hoverLine = page.getByTestId('hover-time-line');
+    await expect(hoverLine).toBeVisible();
+
+    // Clean up: dispatch touchend
+    await page.evaluate(({ x, y }) => {
+      const container = document.querySelector('.hour-grids-container')!;
+      const touch = new Touch({ identifier: 1, target: container, clientX: x, clientY: y });
+      container.dispatchEvent(new TouchEvent('touchend', { touches: [], changedTouches: [touch], bubbles: true }));
+    }, { x, y });
+  });
+
+  test('touch drag updates line position', async ({ page }) => {
+    // Use landscape to test horizontal touch behavior
+    await page.setViewportSize({ width: 667, height: 375 });
+
+    await addTimezone(page, 'New York');
+
+    const hourCell = page.getByTestId('hour-cell').nth(5);
+    const box = await hourCell.boundingBox();
+    const x = box!.x + box!.width / 2;
+    const y = box!.y + box!.height / 2;
+
+    // Dispatch touchstart on the container
+    await page.evaluate(({ x, y }) => {
+      const container = document.querySelector('.hour-grids-container')!;
+      const touch = new Touch({ identifier: 1, target: container, clientX: x, clientY: y });
+      container.dispatchEvent(new TouchEvent('touchstart', { touches: [touch], changedTouches: [touch], bubbles: true }));
+    }, { x, y });
+
+    await page.waitForTimeout(350);
+
+    const hoverLine = page.getByTestId('hover-time-line');
+    await expect(hoverLine).toBeVisible();
+    const left1 = await hoverLine.evaluate((el) => el.style.left);
+
+    // Dispatch touchmove to a different X position
+    const newX = x + box!.width * 2;
+    await page.evaluate(({ y, newX }) => {
+      const container = document.querySelector('.hour-grids-container')!;
+      const touch = new Touch({ identifier: 1, target: container, clientX: newX, clientY: y });
+      container.dispatchEvent(new TouchEvent('touchmove', { touches: [touch], changedTouches: [touch], bubbles: true }));
+    }, { y, newX });
+
+    const left2 = await hoverLine.evaluate((el) => el.style.left);
+    expect(left1).not.toBe(left2);
+
+    // Clean up
+    await page.evaluate(({ newX, y }) => {
+      const container = document.querySelector('.hour-grids-container')!;
+      const touch = new Touch({ identifier: 1, target: container, clientX: newX, clientY: y });
+      container.dispatchEvent(new TouchEvent('touchend', { touches: [], changedTouches: [touch], bubbles: true }));
+    }, { newX, y });
+  });
+
+  test('touch release opens modal', async ({ page }) => {
+    // Use landscape to test horizontal touch behavior
+    await page.setViewportSize({ width: 667, height: 375 });
+
+    await addTimezone(page, 'UTC');
+
+    const hourCell = page.getByTestId('hour-cell').nth(8);
+    const box = await hourCell.boundingBox();
+    const x = box!.x + box!.width / 2;
+    const y = box!.y + box!.height / 2;
+
+    // Dispatch touchstart on the container (events bubble up)
+    await page.evaluate(({ x, y }) => {
+      const container = document.querySelector('.hour-grids-container')!;
+      const touch = new Touch({ identifier: 1, target: container, clientX: x, clientY: y });
+      container.dispatchEvent(new TouchEvent('touchstart', { touches: [touch], changedTouches: [touch], bubbles: true }));
+    }, { x, y });
+
+    await page.waitForTimeout(350);
+
+    // Dispatch touchend on the same container
+    await page.evaluate(({ x, y }) => {
+      const container = document.querySelector('.hour-grids-container')!;
+      const touch = new Touch({ identifier: 1, target: container, clientX: x, clientY: y });
+      container.dispatchEvent(new TouchEvent('touchend', { touches: [], changedTouches: [touch], bubbles: true }));
+    }, { x, y });
+
+    const overlay = page.getByTestId('time-summary-overlay');
+    await expect(overlay).toBeVisible();
+  });
+
+  test('quick touch swipe does not activate hover line (scrolls instead)', async ({ page }) => {
+    // Use landscape to test horizontal touch behavior
+    await page.setViewportSize({ width: 667, height: 375 });
+
+    await addTimezone(page, 'New York');
+
+    const hourCell = page.getByTestId('hour-cell').nth(5);
+    const box = await hourCell.boundingBox();
+    const x = box!.x + box!.width / 2;
+    const y = box!.y + box!.height / 2;
+
+    // Dispatch touchstart on the container
+    await page.evaluate(({ x, y }) => {
+      const container = document.querySelector('.hour-grids-container')!;
+      const touch = new Touch({ identifier: 1, target: container, clientX: x, clientY: y });
+      container.dispatchEvent(new TouchEvent('touchstart', { touches: [touch], changedTouches: [touch], bubbles: true }));
+    }, { x, y });
+
+    // Immediately dispatch touchmove with >10px horizontal delta (before 300ms)
+    const swipeX = x + 50;
+    await page.evaluate(({ y, swipeX }) => {
+      const container = document.querySelector('.hour-grids-container')!;
+      const touch = new Touch({ identifier: 1, target: container, clientX: swipeX, clientY: y });
+      container.dispatchEvent(new TouchEvent('touchmove', { touches: [touch], changedTouches: [touch], bubbles: true }));
+    }, { y, swipeX });
+
+    const hoverLine = page.getByTestId('hover-time-line');
+    await expect(hoverLine).not.toBeVisible();
+
+    // Clean up
+    await page.evaluate(({ swipeX, y }) => {
+      const container = document.querySelector('.hour-grids-container')!;
+      const touch = new Touch({ identifier: 1, target: container, clientX: swipeX, clientY: y });
+      container.dispatchEvent(new TouchEvent('touchend', { touches: [], changedTouches: [touch], bubbles: true }));
+    }, { swipeX, y });
+  });
+});
+
+test.describe('Mobile behavior', () => {
   test('synchronizes horizontal scrolling across timezone rows on small display', async ({ page }) => {
     // Set landscape mobile viewport
     await page.setViewportSize({ width: 667, height: 375 });
@@ -541,7 +799,8 @@ test.describe('Vertical layout - portrait mobile', () => {
 
   test('clicking hour cell still opens time summary modal', async ({ page }) => {
     const firstCell = page.getByTestId('hour-cell').first();
-    await firstCell.click();
+    const box = await firstCell.boundingBox();
+    await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2);
 
     const overlay = page.getByTestId('time-summary-overlay');
     await expect(overlay).toBeVisible();
@@ -549,12 +808,91 @@ test.describe('Vertical layout - portrait mobile', () => {
     const text = page.getByTestId('time-summary-text');
     await expect(text).toBeVisible();
     const content = await text.textContent();
-    expect(content!.length).toBeGreaterThan(0);
+    expect(content).toContain('New York');
+    expect(content).toContain('Tokyo');
+    expect(content).toContain('London');
   });
 
   test('hides current time line in vertical mode', async ({ page }) => {
     const currentTimeLine = page.getByTestId('current-time-line');
     await expect(currentTimeLine).not.toBeVisible();
+  });
+
+  test('hover line appears on mousemove in vertical mode', async ({ page }) => {
+    const hourCell = page.getByTestId('hour-cell').first();
+    const box = await hourCell.boundingBox();
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+
+    const hoverLine = page.getByTestId('hover-time-line');
+    await expect(hoverLine).toBeVisible();
+  });
+
+  test('hover line is horizontal in vertical mode', async ({ page }) => {
+    const hourCell = page.getByTestId('hour-cell').first();
+    const box = await hourCell.boundingBox();
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+
+    const hoverLine = page.getByTestId('hover-time-line');
+    await expect(hoverLine).toBeVisible();
+
+    const lineBox = await hoverLine.boundingBox();
+    expect(lineBox!.height).toBeLessThanOrEqual(3);
+  });
+
+  test('hover tooltip shows correct timezone in vertical mode', async ({ page }) => {
+    // Hover over a cell in the Tokyo column (tz-index 1)
+    const tokyoCell = page.locator('[data-testid="hour-cell"][data-tz-index="1"]').first();
+    const box = await tokyoCell.boundingBox();
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+
+    const tooltip = page.getByTestId('hover-tooltip');
+    await expect(tooltip).toBeVisible();
+    const text = await tooltip.textContent();
+    expect(text).toContain('Tokyo');
+  });
+
+  test('hover line snaps to 15-minute intervals on Y axis', async ({ page }) => {
+    const hourCell = page.locator('[data-testid="hour-cell"][data-hour-index="5"]').first();
+    const box = await hourCell.boundingBox();
+
+    // Hover at 25% of cell height (should snap to :15)
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height * 0.25);
+    const hoverLine = page.getByTestId('hover-time-line');
+    await expect(hoverLine).toBeVisible();
+    const top1 = await hoverLine.evaluate((el) => el.style.top);
+
+    // Hover at 75% of cell height (should snap to :45)
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height * 0.75);
+    const top2 = await hoverLine.evaluate((el) => el.style.top);
+
+    expect(top1).not.toBe(top2);
+  });
+
+  test('click at 15-minute position opens modal with correct time in vertical mode', async ({ page }) => {
+    const hourCell = page.locator('[data-testid="hour-cell"][data-hour-index="8"]').first();
+    const box = await hourCell.boundingBox();
+    // Click at 50% of cell height — should be :30
+    await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height * 0.5);
+
+    const overlay = page.getByTestId('time-summary-overlay');
+    await expect(overlay).toBeVisible();
+
+    const summaryText = page.getByTestId('time-summary-text');
+    const text = await summaryText.textContent();
+    expect(text).toContain(':30');
+  });
+
+  test('hover line disappears on mouseleave in vertical mode', async ({ page }) => {
+    const hourCell = page.getByTestId('hour-cell').first();
+    const box = await hourCell.boundingBox();
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+
+    const hoverLine = page.getByTestId('hover-time-line');
+    await expect(hoverLine).toBeVisible();
+
+    // Move mouse outside the grid
+    await page.mouse.move(0, 0);
+    await expect(hoverLine).not.toBeVisible();
   });
 
   test('falls back to horizontal layout in landscape', async ({ page }) => {

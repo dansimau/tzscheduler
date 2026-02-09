@@ -21,6 +21,7 @@
         .container {
             max-width: 1400px;
             margin: 0 auto;
+            position: relative;
         }
 
         header {
@@ -243,6 +244,8 @@
             position: relative;
             cursor: pointer;
             transition: opacity 0.15s;
+            user-select: none;
+            -webkit-user-select: none;
         }
 
         .hour-cell:last-child {
@@ -303,6 +306,40 @@
             height: 10px;
             background: #ff0000;
             border-radius: 50%;
+        }
+
+        .hover-time-line {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #999;
+            z-index: 45;
+            pointer-events: none;
+        }
+
+        .hover-time-line::before {
+            content: '';
+            position: absolute;
+            top: -4px;
+            left: -4px;
+            width: 10px;
+            height: 10px;
+            background: #999;
+            border-radius: 50%;
+        }
+
+        .hover-tooltip {
+            position: fixed;
+            background: #333;
+            color: white;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 13px;
+            z-index: 60;
+            pointer-events: none;
+            transform: translateX(-50%);
+            white-space: nowrap;
         }
 
         .empty-state {
@@ -586,6 +623,21 @@
             .current-time-line {
                 display: none !important;
             }
+
+            /* 6. Hover line becomes horizontal */
+            .hover-time-line {
+                width: auto !important;
+                height: 2px !important;
+                top: auto;
+                bottom: auto;
+                left: 0;
+                right: 0;
+            }
+
+            .hover-time-line::before {
+                top: -4px;
+                left: -4px;
+            }
         }
     </style>
 </head>
@@ -617,6 +669,8 @@
             </div>
         </div>
         <div class="current-time-line" data-testid="current-time-line" style="display: none;"></div>
+        <div class="hover-time-line" data-testid="hover-time-line" style="display: none;"></div>
+        <div class="hover-tooltip" data-testid="hover-tooltip" style="display: none;"></div>
     </div>
 
     <!-- Time Summary Modal -->
@@ -1344,14 +1398,6 @@
                     });
                 });
 
-                // Attach hour cell click handlers
-                gridContainer.querySelectorAll('.hour-cell').forEach(cell => {
-                    cell.addEventListener('click', () => {
-                        const hourIndex = parseInt(cell.dataset.hourIndex, 10);
-                        TimeSummaryModal.show(hourIndex);
-                    });
-                });
-
                 updateCurrentTimeLine();
             };
 
@@ -1395,7 +1441,6 @@
 
                     const isWorkHour = tzHour >= workHours.start && tzHour < workHours.end;
                     const isDateChange = tzDateStr !== refDateStr;
-                    const tooltip = TimezoneUtils.formatFullDateTime(cellDate, tz.timezone);
                     const isSelected = selectedHourIndex === hour;
 
                     let dateMarker = '';
@@ -1411,8 +1456,7 @@
                              data-hour="${tzHour}"
                              data-hour-index="${hour}"
                              data-tz-index="${tzIndex}"
-                             data-work-hour="${isWorkHour}"
-                             title="${tooltip}">
+                             data-work-hour="${isWorkHour}">
                             ${dateMarker}
                             ${tzHour}
                         </div>
@@ -1515,14 +1559,14 @@
                 });
             };
 
-            const show = (hourIndex) => {
+            const show = (hourIndex, minutes = 0) => {
                 const state = AppState.getState();
                 if (state.timezones.length === 0) return;
 
                 const baseDate = new Date(state.selectedDate);
                 baseDate.setHours(0, 0, 0, 0);
                 const cellDate = new Date(baseDate);
-                cellDate.setHours(hourIndex);
+                cellDate.setHours(hourIndex, minutes, 0, 0);
 
                 const lines = state.timezones.map(tz =>
                     TimezoneUtils.formatMeetingTime(cellDate, tz.timezone, tz.name)
@@ -1599,6 +1643,381 @@
             return { init };
         })();
 
+        // ==================== Hover Line Controller ====================
+        const HoverLineController = (() => {
+            let hoverLine;
+            let hoverTooltip;
+            let gridContainer;
+            let lastClientX = null;
+            let lastClientY = null;
+            let currentListenerContainer = null;
+
+            // Touch hold state
+            let touchStartX = null;
+            let touchStartY = null;
+            let touchHoldTimer = null;
+            let touchHoldActive = false;
+
+            const HOLD_THRESHOLD_MS = 300;
+            const MOVE_CANCEL_PX = 10;
+            let suppressClick = false;
+
+            const isVerticalMode = () =>
+                window.matchMedia('(max-width: 600px) and (orientation: portrait)').matches;
+
+            const init = () => {
+                hoverLine = document.querySelector('[data-testid="hover-time-line"]');
+                hoverTooltip = document.querySelector('[data-testid="hover-tooltip"]');
+                gridContainer = document.querySelector('[data-testid="timezone-grid"]');
+
+                attachListeners();
+
+                // Re-attach listeners after render replaces innerHTML
+                AppState.subscribe(() => {
+                    requestAnimationFrame(attachListeners);
+                });
+
+                // Re-attach on orientation change
+                window.matchMedia('(max-width: 600px) and (orientation: portrait)')
+                    .addEventListener('change', () => { hideLine(); attachListeners(); });
+            };
+
+            const removeListenersFrom = (container) => {
+                if (!container) return;
+                container.removeEventListener('mousemove', handleMouseMove);
+                container.removeEventListener('mouseleave', handleMouseLeave);
+                container.removeEventListener('click', handleClick);
+                container.removeEventListener('scroll', handleScroll);
+                container.removeEventListener('touchstart', handleTouchStart);
+                container.removeEventListener('touchmove', handleTouchMove);
+                container.removeEventListener('touchend', handleTouchEnd);
+                container.removeEventListener('touchcancel', handleTouchCancel);
+            };
+
+            const addListenersTo = (container) => {
+                if (!container) return;
+                container.addEventListener('mousemove', handleMouseMove);
+                container.addEventListener('mouseleave', handleMouseLeave);
+                container.addEventListener('click', handleClick);
+                container.addEventListener('scroll', handleScroll);
+                container.addEventListener('touchstart', handleTouchStart, { passive: false });
+                container.addEventListener('touchmove', handleTouchMove, { passive: false });
+                container.addEventListener('touchend', handleTouchEnd);
+                container.addEventListener('touchcancel', handleTouchCancel);
+            };
+
+            const attachListeners = () => {
+                const newContainer = isVerticalMode()
+                    ? gridContainer
+                    : gridContainer.querySelector('.hour-grids-container');
+                if (!newContainer) return;
+
+                if (currentListenerContainer && currentListenerContainer !== newContainer) {
+                    removeListenersFrom(currentListenerContainer);
+                }
+                removeListenersFrom(newContainer);
+                addListenersTo(newContainer);
+                currentListenerContainer = newContainer;
+            };
+
+            // ---- Horizontal (desktop) snap ----
+            const getSnapInfoHorizontal = (clientX, clientY) => {
+                const container = gridContainer.querySelector('.hour-grids-container');
+                if (!container) return null;
+
+                const containerRect = container.getBoundingClientRect();
+                const scrollLeft = container.scrollLeft;
+                const xInGrid = clientX - containerRect.left + scrollLeft;
+
+                const firstCell = container.querySelector('.hour-cell');
+                if (!firstCell) return null;
+                const cellWidth = firstCell.offsetWidth;
+
+                let hourIndex = Math.floor(xInGrid / cellWidth);
+                hourIndex = Math.max(0, Math.min(23, hourIndex));
+
+                const xWithinCell = xInGrid - hourIndex * cellWidth;
+                const rawMinutes = (xWithinCell / cellWidth) * 60;
+                let snappedMinutes = Math.round(rawMinutes / 15) * 15;
+
+                if (snappedMinutes >= 60) {
+                    if (hourIndex >= 23) {
+                        snappedMinutes = 45;
+                    } else {
+                        snappedMinutes = 0;
+                        hourIndex += 1;
+                    }
+                }
+
+                const timezoneInfoColumn = gridContainer.querySelector('.timezone-info-column');
+                const infoWidth = timezoneInfoColumn ? timezoneInfoColumn.offsetWidth : 0;
+                const snapXInGrid = hourIndex * cellWidth + (snappedMinutes / 60) * cellWidth;
+                const snapXOnScreen = snapXInGrid - scrollLeft + containerRect.left;
+
+                const hourGrids = container.querySelectorAll('.hour-grid');
+                let rowIndex = 0;
+                for (let i = 0; i < hourGrids.length; i++) {
+                    const rect = hourGrids[i].getBoundingClientRect();
+                    if (clientY >= rect.top && clientY <= rect.bottom) {
+                        rowIndex = i;
+                        break;
+                    }
+                }
+
+                const state = AppState.getState();
+                const tz = state.timezones[rowIndex];
+                if (!tz) return null;
+
+                const baseDate = new Date(state.selectedDate);
+                baseDate.setHours(0, 0, 0, 0);
+                const cellDate = new Date(baseDate);
+                cellDate.setHours(hourIndex, snappedMinutes, 0, 0);
+
+                const timeStr = cellDate.toLocaleTimeString('en-US', {
+                    timeZone: tz.timezone,
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false
+                });
+
+                const lineLeft = infoWidth + snapXInGrid - scrollLeft;
+
+                return {
+                    hourIndex,
+                    snappedMinutes,
+                    snapXOnScreen,
+                    lineLeft,
+                    timeStr,
+                    tzName: tz.name,
+                    gridTop: gridContainer.getBoundingClientRect().top,
+                    gridHeight: gridContainer.getBoundingClientRect().height,
+                    vertical: false
+                };
+            };
+
+            // ---- Vertical (portrait mobile) snap ----
+            const getSnapInfoVertical = (clientX, clientY) => {
+                const inner = gridContainer.querySelector('.hour-grids-inner');
+                if (!inner) return null;
+
+                const firstCell = inner.querySelector('.hour-cell');
+                if (!firstCell) return null;
+                const cellHeight = firstCell.offsetHeight;
+
+                const innerRect = inner.getBoundingClientRect();
+                const yInGrid = clientY - innerRect.top;
+
+                let hourIndex = Math.floor(yInGrid / cellHeight);
+                hourIndex = Math.max(0, Math.min(23, hourIndex));
+
+                const yWithinCell = yInGrid - hourIndex * cellHeight;
+                const rawMinutes = (yWithinCell / cellHeight) * 60;
+                let snappedMinutes = Math.round(rawMinutes / 15) * 15;
+
+                if (snappedMinutes >= 60) {
+                    if (hourIndex >= 23) {
+                        snappedMinutes = 45;
+                    } else {
+                        snappedMinutes = 0;
+                        hourIndex += 1;
+                    }
+                }
+
+                // Find which timezone column the cursor is over
+                const zeroCells = inner.querySelectorAll('[data-hour-index="0"]');
+                let tzIndex = 0;
+                for (let i = 0; i < zeroCells.length; i++) {
+                    const rect = zeroCells[i].getBoundingClientRect();
+                    if (clientX >= rect.left && clientX <= rect.right) {
+                        tzIndex = i;
+                        break;
+                    }
+                }
+
+                const state = AppState.getState();
+                const tz = state.timezones[tzIndex];
+                if (!tz) return null;
+
+                const baseDate = new Date(state.selectedDate);
+                baseDate.setHours(0, 0, 0, 0);
+                const cellDate = new Date(baseDate);
+                cellDate.setHours(hourIndex, snappedMinutes, 0, 0);
+
+                const timeStr = cellDate.toLocaleTimeString('en-US', {
+                    timeZone: tz.timezone,
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false
+                });
+
+                // Compute line top relative to .container
+                const containerEl = document.querySelector('.container');
+                const containerRect = containerEl.getBoundingClientRect();
+                const infoColumn = gridContainer.querySelector('.timezone-info-column');
+                const infoHeight = infoColumn ? infoColumn.offsetHeight : 0;
+                const gridRect = gridContainer.getBoundingClientRect();
+
+                const snapYInGrid = hourIndex * cellHeight + (snappedMinutes / 60) * cellHeight;
+                const lineTop = gridRect.top - containerRect.top + infoHeight + snapYInGrid;
+
+                return {
+                    hourIndex,
+                    snappedMinutes,
+                    lineTop,
+                    timeStr,
+                    tzName: tz.name,
+                    clientX,
+                    clientY,
+                    gridLeft: gridRect.left - containerRect.left,
+                    gridWidth: gridRect.width,
+                    vertical: true
+                };
+            };
+
+            const getSnapInfo = (clientX, clientY) =>
+                isVerticalMode() ? getSnapInfoVertical(clientX, clientY) : getSnapInfoHorizontal(clientX, clientY);
+
+            const showLine = (info) => {
+                if (!info) return;
+
+                hoverLine.style.display = 'block';
+
+                if (info.vertical) {
+                    hoverLine.style.top = `${info.lineTop}px`;
+                    hoverLine.style.left = `${info.gridLeft}px`;
+                    hoverLine.style.width = `${info.gridWidth}px`;
+                    hoverLine.style.height = '';
+
+                    hoverTooltip.style.display = 'block';
+                    hoverTooltip.textContent = `${info.tzName}: ${info.timeStr}`;
+                    hoverTooltip.style.left = `${info.clientX + 15}px`;
+                    hoverTooltip.style.top = `${info.clientY - 30}px`;
+                    hoverTooltip.style.transform = 'none';
+                } else {
+                    hoverLine.style.left = `${info.lineLeft}px`;
+                    hoverLine.style.top = `${gridContainer.offsetTop}px`;
+                    hoverLine.style.height = `${gridContainer.offsetHeight}px`;
+                    hoverLine.style.width = '';
+
+                    hoverTooltip.style.display = 'block';
+                    hoverTooltip.textContent = `${info.tzName}: ${info.timeStr}`;
+                    hoverTooltip.style.left = `${info.snapXOnScreen}px`;
+                    hoverTooltip.style.top = `${info.gridTop - 30}px`;
+                    hoverTooltip.style.transform = 'translateX(-50%)';
+                }
+            };
+
+            const hideLine = () => {
+                hoverLine.style.display = 'none';
+                hoverLine.style.width = '';
+                hoverLine.style.height = '';
+                hoverTooltip.style.display = 'none';
+                hoverTooltip.style.transform = '';
+            };
+
+            const handleMouseMove = (e) => {
+                lastClientX = e.clientX;
+                lastClientY = e.clientY;
+                const info = getSnapInfo(e.clientX, e.clientY);
+                showLine(info);
+            };
+
+            const handleMouseLeave = () => {
+                lastClientX = null;
+                lastClientY = null;
+                hideLine();
+            };
+
+            const handleClick = (e) => {
+                // Ignore synthetic clicks generated by touch — touch path
+                // handles modal opening via touchend after hold activation
+                if (suppressClick) {
+                    suppressClick = false;
+                    return;
+                }
+                const info = getSnapInfo(e.clientX, e.clientY);
+                if (info) {
+                    TimeSummaryModal.show(info.hourIndex, info.snappedMinutes);
+                }
+            };
+
+            const handleScroll = () => {
+                if (lastClientX !== null && lastClientY !== null) {
+                    const info = getSnapInfo(lastClientX, lastClientY);
+                    showLine(info);
+                }
+            };
+
+            // Touch handling
+            const resetTouchState = () => {
+                if (touchHoldTimer) {
+                    clearTimeout(touchHoldTimer);
+                    touchHoldTimer = null;
+                }
+                touchHoldActive = false;
+                touchStartX = null;
+                touchStartY = null;
+            };
+
+            const handleTouchStart = (e) => {
+                if (e.touches.length !== 1) return;
+                suppressClick = true;
+                const touch = e.touches[0];
+                touchStartX = touch.clientX;
+                touchStartY = touch.clientY;
+                touchHoldActive = false;
+
+                touchHoldTimer = setTimeout(() => {
+                    touchHoldActive = true;
+                    const info = getSnapInfo(touch.clientX, touch.clientY);
+                    showLine(info);
+                    lastClientX = touch.clientX;
+                    lastClientY = touch.clientY;
+                }, HOLD_THRESHOLD_MS);
+            };
+
+            const handleTouchMove = (e) => {
+                if (e.touches.length !== 1) return;
+                const touch = e.touches[0];
+
+                if (!touchHoldActive) {
+                    const dx = touch.clientX - touchStartX;
+                    const dy = touch.clientY - touchStartY;
+                    if (Math.sqrt(dx * dx + dy * dy) > MOVE_CANCEL_PX) {
+                        if (touchHoldTimer) {
+                            clearTimeout(touchHoldTimer);
+                            touchHoldTimer = null;
+                        }
+                    }
+                    return;
+                }
+
+                e.preventDefault();
+                lastClientX = touch.clientX;
+                lastClientY = touch.clientY;
+                const info = getSnapInfo(touch.clientX, touch.clientY);
+                showLine(info);
+            };
+
+            const handleTouchEnd = () => {
+                if (touchHoldActive && lastClientX !== null && lastClientY !== null) {
+                    const info = getSnapInfo(lastClientX, lastClientY);
+                    if (info) {
+                        TimeSummaryModal.show(info.hourIndex, info.snappedMinutes);
+                    }
+                }
+                hideLine();
+                resetTouchState();
+            };
+
+            const handleTouchCancel = () => {
+                hideLine();
+                resetTouchState();
+            };
+
+            return { init };
+        })();
+
         // ==================== Initialize App ====================
         document.addEventListener('DOMContentLoaded', () => {
             AppState.loadState();
@@ -1606,6 +2025,7 @@
             GridRenderer.init();
             DatePickerComponent.init();
             TimeSummaryModal.init();
+            HoverLineController.init();
         });
     </script>
 </body>

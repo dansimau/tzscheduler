@@ -16,6 +16,16 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
+    {
+      name: 'mobile-touch',
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 375, height: 667 },
+        hasTouch: true,
+        isMobile: true,
+      },
+      grep: /Touch interactions/,
+    },
   ],
   webServer: {
     command: 'npx serve -l 3000 -s .',
