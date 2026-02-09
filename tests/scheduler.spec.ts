@@ -938,6 +938,21 @@ test.describe('Vertical layout - portrait mobile', () => {
     await expect(clone).toContainText('Tokyo');
   });
 
+  test('cloned header hides drag handles', async ({ page }) => {
+    await page.evaluate(() => window.scrollTo(0, 400));
+    await page.waitForTimeout(50);
+
+    const clone = page.locator('.sticky-header-clone');
+    await expect(clone).toHaveCount(1);
+
+    // Drag handles inside the clone should be hidden
+    const handles = clone.locator('.drag-handle');
+    const count = await handles.count();
+    for (let i = 0; i < count; i++) {
+      await expect(handles.nth(i)).not.toBeVisible();
+    }
+  });
+
   test('cloned header is removed when scrolling back up', async ({ page }) => {
     // Scroll down to trigger clone
     await page.evaluate(() => window.scrollTo(0, 400));
