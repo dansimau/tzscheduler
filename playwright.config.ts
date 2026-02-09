@@ -1,5 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
+// Use PORT env var (set by npm test scripts) to avoid conflicts when multiple test sessions run in parallel
+const port = Number(process.env.PORT) || 3000;
+
 export default defineConfig({
   testDir: './tests',
   fullyParallel: true,
@@ -8,7 +11,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: `http://localhost:${port}`,
     trace: 'on-first-retry',
   },
   projects: [
@@ -28,8 +31,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'npx serve -l 3000 -s .',
-    port: 3000,
+    command: `npx serve -l ${port} -s .`,
+    port,
     reuseExistingServer: !process.env.CI,
   },
 });
