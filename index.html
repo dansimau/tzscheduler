@@ -1910,6 +1910,9 @@
                 } else if (ttRect.left < margin) {
                     hoverTooltip.style.left = `${parseFloat(hoverTooltip.style.left) + (margin - ttRect.left)}px`;
                 }
+                if (ttRect.top < margin) {
+                    hoverTooltip.style.top = `${parseFloat(hoverTooltip.style.top) + (margin - ttRect.top)}px`;
+                }
             };
 
             const hideLine = () => {
