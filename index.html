@@ -1885,9 +1885,9 @@
 
                     hoverTooltip.style.display = 'block';
                     hoverTooltip.textContent = `${info.tzName}: ${info.timeStr}`;
-                    hoverTooltip.style.left = `${info.clientX + 15}px`;
-                    hoverTooltip.style.top = `${info.clientY - 30}px`;
-                    hoverTooltip.style.transform = 'none';
+                    hoverTooltip.style.left = `${info.clientX}px`;
+                    hoverTooltip.style.top = `${info.clientY - 50}px`;
+                    hoverTooltip.style.transform = 'translateX(-50%)';
                 } else {
                     hoverLine.style.left = `${info.lineLeft}px`;
                     hoverLine.style.top = `${gridContainer.offsetTop}px`;
