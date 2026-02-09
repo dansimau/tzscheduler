@@ -30,6 +30,14 @@ jobs:
         with:
           fetch-depth: 1
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+
       - name: Run Claude Code
         id: claude
         uses: anthropics/claude-code-action@v1
@@ -53,5 +61,6 @@ jobs:
             --allowed-tools Bash(git pull origin)
             --allowed-tools Bash(git rev-parse)
             --allowed-tools Bash(npm install)
+            --allowed-tools Bash(npm test)
             --allowed-tools Bash(npm run test)
             --allowed-tools Bash(npm run serve)
