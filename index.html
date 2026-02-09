@@ -992,6 +992,7 @@
 
             const notify = () => {
                 listeners.forEach(listener => listener(state));
+                syncToURL();
             };
 
             const loadFromStorage = () => {
@@ -1015,6 +1016,134 @@
                 } catch (e) {
                     console.error('Failed to save to storage:', e);
                 }
+            };
+
+            // ---- URL state persistence ----
+
+            let isHandlingPopState = false;
+            let lastURL = '';
+
+            const escapeHTML = (str) => {
+                const div = document.createElement('div');
+                div.textContent = str;
+                return div.innerHTML;
+            };
+
+            const isToday = (date) => {
+                const d = date instanceof Date ? date : new Date(date);
+                const today = new Date();
+                return d.getFullYear() === today.getFullYear()
+                    && d.getMonth() === today.getMonth()
+                    && d.getDate() === today.getDate();
+            };
+
+            const encodeStateToURL = (st) => {
+                const parts = st.timezones.map(tz => `tz=${tz.name}:${tz.timezone}`);
+                if (!isToday(st.selectedDate)) {
+                    const d = st.selectedDate instanceof Date ? st.selectedDate : new Date(st.selectedDate);
+                    const yyyy = d.getFullYear();
+                    const mm = String(d.getMonth() + 1).padStart(2, '0');
+                    const dd = String(d.getDate()).padStart(2, '0');
+                    parts.push(`date=${yyyy}-${mm}-${dd}`);
+                }
+                return parts.length > 0 ? `?${parts.join('&')}` : window.location.pathname;
+            };
+
+            const decodeStateFromURL = () => {
+                const params = new URLSearchParams(window.location.search);
+
+                // Parse date
+                let selectedDate = null;
+                const dateParam = params.get('date');
+                if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+                    selectedDate = new Date(dateParam + 'T00:00:00');
+                }
+
+                // Parse timezones
+                let timezones = null;
+                const tzParams = params.getAll('tz');
+                if (tzParams.length > 0) {
+                    const seen = new Set();
+                    timezones = [];
+                    for (const raw of tzParams) {
+                        // Format is "DisplayName:Region/City" — split on first ":"
+                        const colonIdx = raw.indexOf(':');
+                        let name, iana;
+                        if (colonIdx === -1) {
+                            iana = raw;
+                            name = raw.split('/').pop().replace(/_/g, ' ');
+                        } else {
+                            name = raw.substring(0, colonIdx);
+                            iana = raw.substring(colonIdx + 1);
+                        }
+                        // Validate timezone
+                        try {
+                            Intl.DateTimeFormat(undefined, { timeZone: iana });
+                        } catch (e) {
+                            continue;
+                        }
+                        if (seen.has(iana)) continue;
+                        seen.add(iana);
+                        timezones.push({
+                            id: `tz-${Date.now()}-${timezones.length}`,
+                            name: escapeHTML(name),
+                            timezone: iana
+                        });
+                    }
+                    if (timezones.length === 0) timezones = null;
+                }
+
+                if (timezones === null && selectedDate === null) return null;
+
+                return { timezones, selectedDate };
+            };
+
+            const syncToURL = () => {
+                if (isHandlingPopState) return;
+                const url = encodeStateToURL(state);
+                if (url === lastURL) return;
+                lastURL = url;
+                history.replaceState(null, '', url);
+            };
+
+            // popstate handler for browser back/forward
+            window.addEventListener('popstate', () => {
+                isHandlingPopState = true;
+                const urlState = decodeStateFromURL();
+                if (urlState) {
+                    if (urlState.timezones !== null) {
+                        state.timezones = urlState.timezones;
+                    } else {
+                        loadFromStorage();
+                    }
+                    state.selectedDate = urlState.selectedDate !== null
+                        ? urlState.selectedDate
+                        : new Date();
+                } else {
+                    loadFromStorage();
+                    state.selectedDate = new Date();
+                }
+                lastURL = encodeStateToURL(state);
+                notify();
+                isHandlingPopState = false;
+            });
+
+            const loadState = () => {
+                const urlState = decodeStateFromURL();
+                if (urlState) {
+                    if (urlState.timezones !== null) {
+                        state.timezones = urlState.timezones;
+                    } else {
+                        loadFromStorage();
+                    }
+                    if (urlState.selectedDate !== null) {
+                        state.selectedDate = urlState.selectedDate;
+                    }
+                    saveToStorage();
+                } else {
+                    loadFromStorage();
+                }
+                notify();
             };
 
             const addTimezone = (name, timezone) => {
@@ -1058,6 +1187,7 @@
             return {
                 subscribe,
                 loadFromStorage,
+                loadState,
                 addTimezone,
                 removeTimezone,
                 setSelectedDate,
@@ -1436,14 +1566,29 @@
         const DatePickerComponent = (() => {
             let datePicker;
 
+            const formatDateValue = (date) => {
+                const d = date instanceof Date ? date : new Date(date);
+                const yyyy = d.getFullYear();
+                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                const dd = String(d.getDate()).padStart(2, '0');
+                return `${yyyy}-${mm}-${dd}`;
+            };
+
             const init = () => {
                 datePicker = document.querySelector('[data-testid="date-picker"]');
 
-                // Set initial value to today
-                const today = new Date();
-                datePicker.value = today.toISOString().split('T')[0];
+                // Set initial value from AppState (which may have loaded from URL)
+                datePicker.value = formatDateValue(AppState.getState().selectedDate);
 
                 datePicker.addEventListener('change', handleChange);
+
+                // Keep date picker in sync on popstate navigation
+                AppState.subscribe((state) => {
+                    const newVal = formatDateValue(state.selectedDate);
+                    if (datePicker.value !== newVal) {
+                        datePicker.value = newVal;
+                    }
+                });
             };
 
             const handleChange = (e) => {
@@ -1456,7 +1601,7 @@
 
         // ==================== Initialize App ====================
         document.addEventListener('DOMContentLoaded', () => {
-            AppState.loadFromStorage();
+            AppState.loadState();
             SearchComponent.init();
             GridRenderer.init();
             DatePickerComponent.init();
