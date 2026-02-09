@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 // Helper function to add a timezone
 async function addTimezone(page: any, searchTerm: string) {
