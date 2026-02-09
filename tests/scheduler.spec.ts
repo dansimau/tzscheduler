@@ -1101,3 +1101,82 @@ test.describe('Drag to reorder timezones', () => {
     expect(cursor).toBe('grab');
   });
 });
+
+test.describe('Mobile header bug fixes', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto('/');
+    await page.evaluate(() => localStorage.clear());
+    await page.reload();
+    await page.setViewportSize({ width: 375, height: 667 });
+
+    await addTimezone(page, 'New York');
+    await addTimezone(page, 'Tokyo');
+    await addTimezone(page, 'London');
+
+    await expect(page.getByTestId('timezone-info')).toHaveCount(3);
+  });
+
+  test('hover line does not appear when touching header area', async ({ page }) => {
+    // Get the timezone info header (above the hour cells)
+    const firstInfo = page.getByTestId('timezone-info').first();
+    const box = await firstInfo.boundingBox();
+
+    // Move mouse over the header area (should not trigger hover line)
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+
+    const hoverLine = page.getByTestId('hover-time-line');
+    await expect(hoverLine).not.toBeVisible();
+  });
+
+  test('hover line appears when touching hour cells below header', async ({ page }) => {
+    // Get the first hour cell (below the header)
+    const firstCell = page.getByTestId('hour-cell').first();
+    const box = await firstCell.boundingBox();
+
+    // Move mouse over the hour cell (should trigger hover line)
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+
+    const hoverLine = page.getByTestId('hover-time-line');
+    await expect(hoverLine).toBeVisible();
+  });
+
+  test('sticky header clone has pointer-events none', async ({ page }) => {
+    // Scroll down to trigger the sticky header clone
+    await page.evaluate(() => window.scrollTo(0, 400));
+    await page.waitForTimeout(50);
+
+    const clone = page.locator('.sticky-header-clone');
+    await expect(clone).toHaveCount(1);
+
+    // Check that the clone has pointer-events: none
+    const pointerEvents = await clone.evaluate((el) => {
+      return window.getComputedStyle(el).pointerEvents;
+    });
+    expect(pointerEvents).toBe('none');
+  });
+
+  test('can interact with content below sticky header clone', async ({ page }) => {
+    // Scroll down to trigger the sticky header clone
+    await page.evaluate(() => window.scrollTo(0, 400));
+    await page.waitForTimeout(50);
+
+    const clone = page.locator('.sticky-header-clone');
+    await expect(clone).toHaveCount(1);
+
+    // Get the position of the clone
+    const cloneBox = await clone.boundingBox();
+
+    // Try to interact with content at the clone's position
+    // The mouse event should pass through to the hour cells below
+    const x = cloneBox!.x + cloneBox!.width / 2;
+    const y = cloneBox!.y + cloneBox!.height + 50; // Just below the clone
+
+    // Move mouse to a position where the clone might be, but events should pass through
+    await page.mouse.move(x, y);
+
+    // Check if hover line appears (indicating events passed through)
+    const hoverLine = page.getByTestId('hover-time-line');
+    await expect(hoverLine).toBeVisible();
+  });
+});

@@ -610,6 +610,7 @@
                 overflow: hidden;
                 display: flex;
                 flex-direction: row;
+                pointer-events: none;
             }
 
             .sticky-header-clone .timezone-info {
@@ -2018,6 +2019,9 @@
 
                 const innerRect = inner.getBoundingClientRect();
                 const yInGrid = clientY - innerRect.top;
+
+                // Touch/hover is above the hour cells (i.e. in the header area)
+                if (yInGrid < 0) return null;
 
                 let hourIndex = Math.floor(yInGrid / cellHeight);
                 hourIndex = Math.max(0, Math.min(23, hourIndex));
