@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "description": "Time Scheduler - Timezone comparison web app",
   "scripts": {
-    "test": "playwright test && node scripts/report-coverage.mjs",
-    "test:ui": "playwright test --ui",
-    "test:headed": "playwright test --headed",
+    "test": "PORT=$(node scripts/get-free-port.mjs) playwright test && node scripts/report-coverage.mjs",
+    "test:ui": "PORT=$(node scripts/get-free-port.mjs) playwright test --ui",
+    "test:headed": "PORT=$(node scripts/get-free-port.mjs) playwright test --headed",
     "serve": "serve -l 3000 -s ."
   },
   "devDependencies": {

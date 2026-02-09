@@ -28,7 +28,7 @@ for (const file of files) {
 
   for (const entry of entries) {
     // Only include coverage from the app itself
-    if (!entry.url.includes('localhost:3000')) continue;
+    if (!entry.url.includes('localhost:')) continue;
     if (!entry.source) continue;
 
     const converter = v8toIstanbul(appFilePath, 0, {
