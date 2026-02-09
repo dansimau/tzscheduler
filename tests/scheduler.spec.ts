@@ -917,6 +917,78 @@ test.describe('Vertical layout - portrait mobile', () => {
     await expect(hoverLine).not.toBeVisible();
   });
 
+  test('cloned header appears fixed at top when scrolling down', async ({ page }) => {
+    // No clone initially
+    const cloneBefore = page.locator('.sticky-header-clone');
+    await expect(cloneBefore).toHaveCount(0);
+
+    // Scroll the page down so the header goes off-screen
+    await page.evaluate(() => window.scrollTo(0, 400));
+    await page.waitForTimeout(50);
+
+    // Clone should now exist and be near the top of the viewport
+    const clone = page.locator('.sticky-header-clone');
+    await expect(clone).toHaveCount(1);
+    const cloneBox = await clone.boundingBox();
+    expect(cloneBox).toBeTruthy();
+    expect(cloneBox!.y).toBeLessThanOrEqual(1);
+
+    // Clone should contain timezone names
+    await expect(clone).toContainText('New York');
+    await expect(clone).toContainText('Tokyo');
+  });
+
+  test('cloned header hides drag handles', async ({ page }) => {
+    await page.evaluate(() => window.scrollTo(0, 400));
+    await page.waitForTimeout(50);
+
+    const clone = page.locator('.sticky-header-clone');
+    await expect(clone).toHaveCount(1);
+
+    // Drag handles inside the clone should be hidden
+    const handles = clone.locator('.drag-handle');
+    const count = await handles.count();
+    for (let i = 0; i < count; i++) {
+      await expect(handles.nth(i)).not.toBeVisible();
+    }
+  });
+
+  test('cloned header is removed when scrolling back up', async ({ page }) => {
+    // Scroll down to trigger clone
+    await page.evaluate(() => window.scrollTo(0, 400));
+    await page.waitForTimeout(50);
+    await expect(page.locator('.sticky-header-clone')).toHaveCount(1);
+
+    // Scroll back to top
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForTimeout(50);
+    await expect(page.locator('.sticky-header-clone')).toHaveCount(0);
+  });
+
+  test('cloned header does not extend past end of table', async ({ page }) => {
+    const grid = page.getByTestId('timezone-grid');
+
+    // Scroll far enough that the grid bottom is near/above the viewport
+    const gridHeight = await grid.evaluate(el => el.getBoundingClientRect().height);
+    const gridTop = await grid.evaluate(el => el.getBoundingClientRect().top + window.scrollY);
+    await page.evaluate((y) => window.scrollTo(0, y), gridTop + gridHeight - 30);
+    await page.waitForTimeout(50);
+
+    const clone = page.locator('.sticky-header-clone');
+    const cloneCount = await clone.count();
+
+    if (cloneCount > 0) {
+      const cloneBox = await clone.boundingBox();
+      const gridBox = await grid.boundingBox();
+      expect(cloneBox).toBeTruthy();
+      expect(gridBox).toBeTruthy();
+      const cloneBottom = cloneBox!.y + cloneBox!.height;
+      const gridBottom = gridBox!.y + gridBox!.height;
+      expect(cloneBottom).toBeLessThanOrEqual(gridBottom + 2);
+    }
+    // If no clone exists, the grid bottom passed the header height threshold — also correct
+  });
+
   test('drag handles are visible in vertical mode', async ({ page }) => {
     const handles = page.getByTestId('drag-handle');
     const count = await handles.count();

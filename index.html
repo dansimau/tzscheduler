@@ -599,6 +599,65 @@
                 border-bottom: 1px solid #eee;
             }
 
+            /* Cloned sticky header fixed to viewport top */
+            .sticky-header-clone {
+                position: fixed;
+                top: 0;
+                z-index: 50;
+                background: #fafafa;
+                border-bottom: 1px solid #ddd;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+                overflow: hidden;
+                display: flex;
+                flex-direction: row;
+            }
+
+            .sticky-header-clone .timezone-info {
+                flex: 1;
+                width: auto;
+                min-width: 100px;
+                height: auto;
+                border-bottom: none;
+                border-right: 1px solid #eee;
+                text-align: center;
+                padding: 6px 4px;
+            }
+
+            .sticky-header-clone .timezone-info:last-child {
+                border-right: none;
+            }
+
+            .sticky-header-clone .timezone-name {
+                font-size: 11px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .sticky-header-clone .timezone-offset {
+                font-size: 10px;
+            }
+
+            .sticky-header-clone .timezone-current-time {
+                font-size: 10px;
+            }
+
+            .sticky-header-clone .timezone-abbr {
+                display: none;
+            }
+
+            .sticky-header-clone .remove-btn {
+                display: none;
+            }
+
+            .sticky-header-clone .drag-handle {
+                display: none;
+            }
+
+            .sticky-header-clone .timezone-info {
+                padding: 6px 4px;
+            }
+
             .timezone-info {
                 flex: 1;
                 width: auto;
@@ -2184,9 +2243,98 @@
             return { init };
         })();
 
+        // ==================== Sticky Header Controller ====================
+        const StickyHeaderController = (() => {
+            let gridContainer;
+            let clone = null;
+
+            const isVerticalMode = () =>
+                window.matchMedia('(max-width: 600px) and (orientation: portrait)').matches;
+
+            const init = () => {
+                gridContainer = document.querySelector('[data-testid="timezone-grid"]');
+                window.addEventListener('scroll', update, { passive: true });
+                window.addEventListener('resize', update, { passive: true });
+                window.matchMedia('(max-width: 600px) and (orientation: portrait)')
+                    .addEventListener('change', update);
+                AppState.subscribe(() => requestAnimationFrame(update));
+            };
+
+            const update = () => {
+                if (!isVerticalMode()) {
+                    removeClone();
+                    return;
+                }
+
+                const header = gridContainer.querySelector('[data-testid="timezone-info-column"]');
+                if (!header) {
+                    removeClone();
+                    return;
+                }
+
+                const headerRect = header.getBoundingClientRect();
+                const gridRect = gridContainer.getBoundingClientRect();
+
+                // Header is still visible — no clone needed
+                if (headerRect.top >= 0) {
+                    removeClone();
+                    return;
+                }
+
+                // Grid has scrolled entirely past the viewport — hide clone
+                const headerHeight = header.offsetHeight;
+                if (gridRect.bottom <= headerHeight) {
+                    removeClone();
+                    return;
+                }
+
+                // Create or update the clone
+                if (!clone) {
+                    clone = header.cloneNode(true);
+                    clone.classList.add('sticky-header-clone');
+                    clone.removeAttribute('data-testid');
+                    document.body.appendChild(clone);
+
+                    // Sync horizontal scroll
+                    gridContainer.addEventListener('scroll', syncScroll, { passive: true });
+                }
+
+                // Update clone content (times may have changed after re-render)
+                const freshHeader = gridContainer.querySelector('[data-testid="timezone-info-column"]');
+                if (freshHeader && clone.innerHTML !== freshHeader.innerHTML) {
+                    clone.innerHTML = freshHeader.innerHTML;
+                }
+
+                // Position: match the grid's horizontal position and width
+                clone.style.left = `${gridRect.left}px`;
+                clone.style.width = `${gridRect.width}px`;
+
+                // Clamp: don't extend past grid bottom
+                const maxTop = gridRect.bottom - headerHeight;
+                clone.style.top = `${Math.min(0, maxTop)}px`;
+
+                // Sync horizontal scroll offset
+                syncScroll();
+            };
+
+            const syncScroll = () => {
+                if (!clone) return;
+                clone.scrollLeft = gridContainer.scrollLeft;
+            };
+
+            const removeClone = () => {
+                if (clone) {
+                    clone.remove();
+                    clone = null;
+                    gridContainer.removeEventListener('scroll', syncScroll);
+                }
+            };
+
+            return { init };
+        })();
+
         // Expose modules on window for external access
         window.AppState = AppState;
-
         // ==================== Initialize App ====================
         document.addEventListener('DOMContentLoaded', () => {
             AppState.loadState();
@@ -2195,6 +2343,7 @@
             DatePickerComponent.init();
             TimeSummaryModal.init();
             HoverLineController.init();
+            StickyHeaderController.init();
         });
     </script>
 </body>
