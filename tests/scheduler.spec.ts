@@ -917,6 +917,15 @@ test.describe('Vertical layout - portrait mobile', () => {
     await expect(hoverLine).not.toBeVisible();
   });
 
+  test('drag handles are visible in vertical mode', async ({ page }) => {
+    const handles = page.getByTestId('drag-handle');
+    const count = await handles.count();
+    expect(count).toBeGreaterThanOrEqual(2);
+
+    const handle = handles.first();
+    await expect(handle).toBeVisible();
+  });
+
   test('falls back to horizontal layout in landscape', async ({ page }) => {
     // Switch to landscape
     await page.setViewportSize({ width: 667, height: 375 });
@@ -939,5 +948,84 @@ test.describe('Vertical layout - portrait mobile', () => {
     // Horizontal layout: similar y, different x
     expect(Math.abs(box0!.y - box1!.y)).toBeLessThan(5);
     expect(box1!.x).toBeGreaterThan(box0!.x);
+  });
+});
+
+test.describe('Drag to reorder timezones', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.evaluate(() => localStorage.clear());
+    await page.reload();
+    await addTimezone(page, 'New York');
+    await addTimezone(page, 'London');
+    await addTimezone(page, 'Tokyo');
+  });
+
+  test('drag handles are visible for each timezone', async ({ page }) => {
+    const handles = page.getByTestId('drag-handle');
+    await expect(handles).toHaveCount(3);
+    for (let i = 0; i < 3; i++) {
+      await expect(handles.nth(i)).toBeVisible();
+    }
+  });
+
+  test('drag handle has correct color', async ({ page }) => {
+    const circle = page.locator('.drag-handle svg circle').first();
+    const fill = await circle.getAttribute('fill');
+    expect(fill).toBe('#398f58');
+  });
+
+  test('reorders timezones via AppState.moveTimezone', async ({ page }) => {
+    // Verify initial order
+    const infos = page.getByTestId('timezone-info');
+    await expect(infos.nth(0)).toContainText('New York');
+    await expect(infos.nth(1)).toContainText('London');
+    await expect(infos.nth(2)).toContainText('Tokyo');
+
+    // Use AppState.moveTimezone directly to test reorder logic
+    await page.evaluate(() => {
+      (window as any).AppState.moveTimezone(2, 0);
+    });
+
+    // Tokyo should now be first
+    const infosAfter = page.getByTestId('timezone-info');
+    await expect(infosAfter.nth(0)).toContainText('Tokyo');
+    await expect(infosAfter.nth(1)).toContainText('New York');
+    await expect(infosAfter.nth(2)).toContainText('London');
+  });
+
+  test('reorder persists to localStorage', async ({ page }) => {
+    await page.evaluate(() => {
+      (window as any).AppState.moveTimezone(0, 2);
+    });
+
+    // New York moved to end
+    await expect(page.getByTestId('timezone-info').nth(2)).toContainText('New York');
+
+    // Reload and check persistence
+    await page.reload();
+    const infos = page.getByTestId('timezone-info');
+    await expect(infos.nth(0)).toContainText('London');
+    await expect(infos.nth(1)).toContainText('Tokyo');
+    await expect(infos.nth(2)).toContainText('New York');
+  });
+
+  test('reorder updates URL state', async ({ page }) => {
+    await page.evaluate(() => {
+      (window as any).AppState.moveTimezone(2, 0);
+    });
+
+    // URL should reflect new order: Tokyo first
+    const url = page.url();
+    const tzParams = new URL(url).searchParams.getAll('tz');
+    expect(tzParams[0]).toContain('Tokyo');
+  });
+
+  test('drag handle has grab cursor', async ({ page }) => {
+    const handle = page.getByTestId('drag-handle').first();
+    const cursor = await handle.evaluate((el: Element) => {
+      return window.getComputedStyle(el).cursor;
+    });
+    expect(cursor).toBe('grab');
   });
 });
