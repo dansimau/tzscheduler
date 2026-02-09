@@ -1284,6 +1284,7 @@
             };
 
             const moveTimezone = (fromIndex, toIndex) => {
+                if (!Number.isInteger(fromIndex) || !Number.isInteger(toIndex)) return;
                 if (fromIndex === toIndex) return;
                 if (fromIndex < 0 || fromIndex >= state.timezones.length) return;
                 if (toIndex < 0 || toIndex >= state.timezones.length) return;
@@ -1520,6 +1521,7 @@
                     info.addEventListener('drop', (e) => {
                         e.preventDefault();
                         const fromIndex = parseInt(e.dataTransfer.getData('text/plain'), 10);
+                        if (Number.isNaN(fromIndex)) return;
 
                         const rect = info.getBoundingClientRect();
                         const isVertical = window.matchMedia('(max-width: 600px) and (orientation: portrait)').matches;
