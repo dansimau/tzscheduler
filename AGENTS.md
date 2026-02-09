@@ -41,3 +41,5 @@ The first timezone in the list is always the reference timezone.
 ## Testing
 
 Tests are in `tests/scheduler.spec.ts` using Playwright (Chromium only). Tests use `data-testid` attributes for element selection — the same attributes are used by both tests and application JS. The Playwright config auto-starts a dev server on port 3000.
+
+When writing new features, testing and verification should be done by adding Playwright tests. Run `npm test` to execute the full test suite.

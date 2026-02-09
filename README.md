@@ -1,5 +1,8 @@
 # Time Scheduler
 
+![Checks](https://github.com/dansimau/yas/actions/workflows/checks.yaml/badge.svg)
+![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/dansimau/tzscheduler/badges/coverage.json)
+
 A simple timezone comparison tool for scheduling meetings across multiple timezones. Add cities or timezones, and see a 24-hour grid showing work hours (highlighted in green) across all locations.
 
 **URL:** https://dansimau.github.io/tzscheduler/

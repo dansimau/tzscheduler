@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 // Helper function to add a timezone
 async function addTimezone(page: any, searchTerm: string) {
@@ -277,10 +277,10 @@ test.describe('Empty state', () => {
   });
 });
 
-test.describe('Mobile behavior', () => {
+test.describe('Mobile behavior - landscape', () => {
   test('synchronizes horizontal scrolling across timezone rows on small display', async ({ page }) => {
-    // Set mobile viewport
-    await page.setViewportSize({ width: 375, height: 667 });
+    // Set landscape mobile viewport
+    await page.setViewportSize({ width: 667, height: 375 });
 
     await page.goto('/');
     await page.evaluate(() => localStorage.clear());
@@ -460,5 +460,124 @@ test.describe('URL state persistence', () => {
     const timezoneInfos = page.getByTestId('timezone-info');
     await expect(timezoneInfos).toHaveCount(1);
     await expect(timezoneInfos.first()).toContainText('London');
+  });
+});
+
+test.describe('Vertical layout - portrait mobile', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto('/');
+    await page.evaluate(() => localStorage.clear());
+    await page.reload();
+    await page.setViewportSize({ width: 375, height: 667 });
+
+    await addTimezone(page, 'New York');
+    await addTimezone(page, 'Tokyo');
+    await addTimezone(page, 'London');
+
+    await expect(page.getByTestId('timezone-info')).toHaveCount(3);
+  });
+
+  test('displays timezone info as horizontal header row', async ({ page }) => {
+    const firstInfo = page.getByTestId('timezone-info').nth(0);
+    const secondInfo = page.getByTestId('timezone-info').nth(1);
+
+    const firstBox = await firstInfo.boundingBox();
+    const secondBox = await secondInfo.boundingBox();
+
+    expect(firstBox).toBeTruthy();
+    expect(secondBox).toBeTruthy();
+
+    // Same row: similar y coordinates
+    expect(Math.abs(firstBox!.y - secondBox!.y)).toBeLessThan(5);
+
+    // Side by side: different x coordinates
+    expect(secondBox!.x).toBeGreaterThan(firstBox!.x);
+  });
+
+  test('displays hour cells in vertical columns', async ({ page }) => {
+    const firstGrid = page.getByTestId('hour-grid').first();
+    const cells = firstGrid.locator('[data-testid="hour-cell"]');
+
+    const cell0 = cells.nth(0);
+    const cell1 = cells.nth(1);
+
+    const box0 = await cell0.boundingBox();
+    const box1 = await cell1.boundingBox();
+
+    expect(box0).toBeTruthy();
+    expect(box1).toBeTruthy();
+
+    // Similar x (same column)
+    expect(Math.abs(box0!.x - box1!.x)).toBeLessThan(5);
+
+    // Second cell below the first (larger y)
+    expect(box1!.y).toBeGreaterThan(box0!.y);
+  });
+
+  test('each timezone occupies a separate column', async ({ page }) => {
+    const hourGrids = page.getByTestId('hour-grid');
+    const gridCount = await hourGrids.count();
+    expect(gridCount).toBe(3);
+
+    // Get the first hour cell (hour-index 0) from each grid
+    const boxes = [];
+    for (let i = 0; i < gridCount; i++) {
+      const grid = hourGrids.nth(i);
+      const firstCell = grid.locator('[data-hour-index="0"]');
+      const box = await firstCell.boundingBox();
+      expect(box).toBeTruthy();
+      boxes.push(box!);
+    }
+
+    // All should have similar y (same row)
+    expect(Math.abs(boxes[0].y - boxes[1].y)).toBeLessThan(5);
+    expect(Math.abs(boxes[1].y - boxes[2].y)).toBeLessThan(5);
+
+    // Increasing x (side by side columns)
+    expect(boxes[1].x).toBeGreaterThan(boxes[0].x);
+    expect(boxes[2].x).toBeGreaterThan(boxes[1].x);
+  });
+
+  test('clicking hour cell still opens time summary modal', async ({ page }) => {
+    const firstCell = page.getByTestId('hour-cell').first();
+    await firstCell.click();
+
+    const overlay = page.getByTestId('time-summary-overlay');
+    await expect(overlay).toBeVisible();
+
+    const text = page.getByTestId('time-summary-text');
+    await expect(text).toBeVisible();
+    const content = await text.textContent();
+    expect(content!.length).toBeGreaterThan(0);
+  });
+
+  test('hides current time line in vertical mode', async ({ page }) => {
+    const currentTimeLine = page.getByTestId('current-time-line');
+    await expect(currentTimeLine).not.toBeVisible();
+  });
+
+  test('falls back to horizontal layout in landscape', async ({ page }) => {
+    // Switch to landscape
+    await page.setViewportSize({ width: 667, height: 375 });
+
+    // Need to re-render after viewport change
+    await page.waitForTimeout(100);
+
+    const firstGrid = page.getByTestId('hour-grid').first();
+    const cells = firstGrid.locator('[data-testid="hour-cell"]');
+
+    const cell0 = cells.nth(0);
+    const cell1 = cells.nth(1);
+
+    const box0 = await cell0.boundingBox();
+    const box1 = await cell1.boundingBox();
+
+    expect(box0).toBeTruthy();
+    expect(box1).toBeTruthy();
+
+    // Horizontal layout: similar y, different x
+    expect(Math.abs(box0!.y - box1!.y)).toBeLessThan(5);
+    expect(box1!.x).toBeGreaterThan(box0!.x);
   });
 });
