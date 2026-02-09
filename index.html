@@ -936,6 +936,12 @@
             let isHandlingPopState = false;
             let lastURL = '';
 
+            const escapeHTML = (str) => {
+                const div = document.createElement('div');
+                div.textContent = str;
+                return div.innerHTML;
+            };
+
             const isToday = (date) => {
                 const d = date instanceof Date ? date : new Date(date);
                 const today = new Date();
@@ -958,43 +964,49 @@
 
             const decodeStateFromURL = () => {
                 const params = new URLSearchParams(window.location.search);
-                const tzParams = params.getAll('tz');
-                if (tzParams.length === 0) return null;
 
-                const seen = new Set();
-                const timezones = [];
-                for (const raw of tzParams) {
-                    // Format is "DisplayName:Region/City" — split on first ":"
-                    const colonIdx = raw.indexOf(':');
-                    let name, iana;
-                    if (colonIdx === -1) {
-                        iana = raw;
-                        name = raw.split('/').pop().replace(/_/g, ' ');
-                    } else {
-                        name = raw.substring(0, colonIdx);
-                        iana = raw.substring(colonIdx + 1);
-                    }
-                    // Validate timezone
-                    try {
-                        Intl.DateTimeFormat(undefined, { timeZone: iana });
-                    } catch (e) {
-                        continue;
-                    }
-                    if (seen.has(iana)) continue;
-                    seen.add(iana);
-                    timezones.push({
-                        id: `tz-${Date.now()}-${timezones.length}`,
-                        name,
-                        timezone: iana
-                    });
-                }
-                if (timezones.length === 0) return null;
-
-                let selectedDate = new Date();
+                // Parse date
+                let selectedDate = null;
                 const dateParam = params.get('date');
                 if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
                     selectedDate = new Date(dateParam + 'T00:00:00');
                 }
+
+                // Parse timezones
+                let timezones = null;
+                const tzParams = params.getAll('tz');
+                if (tzParams.length > 0) {
+                    const seen = new Set();
+                    timezones = [];
+                    for (const raw of tzParams) {
+                        // Format is "DisplayName:Region/City" — split on first ":"
+                        const colonIdx = raw.indexOf(':');
+                        let name, iana;
+                        if (colonIdx === -1) {
+                            iana = raw;
+                            name = raw.split('/').pop().replace(/_/g, ' ');
+                        } else {
+                            name = raw.substring(0, colonIdx);
+                            iana = raw.substring(colonIdx + 1);
+                        }
+                        // Validate timezone
+                        try {
+                            Intl.DateTimeFormat(undefined, { timeZone: iana });
+                        } catch (e) {
+                            continue;
+                        }
+                        if (seen.has(iana)) continue;
+                        seen.add(iana);
+                        timezones.push({
+                            id: `tz-${Date.now()}-${timezones.length}`,
+                            name: escapeHTML(name),
+                            timezone: iana
+                        });
+                    }
+                    if (timezones.length === 0) timezones = null;
+                }
+
+                if (timezones === null && selectedDate === null) return null;
 
                 return { timezones, selectedDate };
             };
@@ -1012,8 +1024,14 @@
                 isHandlingPopState = true;
                 const urlState = decodeStateFromURL();
                 if (urlState) {
-                    state.timezones = urlState.timezones;
-                    state.selectedDate = urlState.selectedDate;
+                    if (urlState.timezones !== null) {
+                        state.timezones = urlState.timezones;
+                    } else {
+                        loadFromStorage();
+                    }
+                    state.selectedDate = urlState.selectedDate !== null
+                        ? urlState.selectedDate
+                        : new Date();
                 } else {
                     loadFromStorage();
                     state.selectedDate = new Date();
@@ -1026,8 +1044,14 @@
             const loadState = () => {
                 const urlState = decodeStateFromURL();
                 if (urlState) {
-                    state.timezones = urlState.timezones;
-                    state.selectedDate = urlState.selectedDate;
+                    if (urlState.timezones !== null) {
+                        state.timezones = urlState.timezones;
+                    } else {
+                        loadFromStorage();
+                    }
+                    if (urlState.selectedDate !== null) {
+                        state.selectedDate = urlState.selectedDate;
+                    }
                     saveToStorage();
                 } else {
                     loadFromStorage();

@@ -424,4 +424,41 @@ test.describe('URL state persistence', () => {
 
     await expect(page).toHaveURL(/date=2026-12-25/);
   });
+
+  test('HTML in timezone name from URL is escaped', async ({ page }) => {
+    await page.goto('/?tz=%3Cimg%20src=x%20onerror=alert(1)%3E:Europe/London');
+
+    const timezoneInfos = page.getByTestId('timezone-info');
+    await expect(timezoneInfos).toHaveCount(1);
+
+    // The name should be rendered as escaped text, not as HTML
+    const innerHTML = await timezoneInfos.first().evaluate(el => el.innerHTML);
+    expect(innerHTML).not.toContain('<img');
+    expect(innerHTML).toContain('&lt;img');
+
+    // No script should have executed
+    const alertFired = await page.evaluate(() => (window as any).__xss_fired ?? false);
+    expect(alertFired).toBe(false);
+  });
+
+  test('date-only URL preserves selected date', async ({ page }) => {
+    // Set up localStorage with a timezone so the grid renders
+    await page.goto('/');
+    await page.evaluate(() => {
+      localStorage.setItem('timescheduler_timezones', JSON.stringify([
+        { id: 'tz-1', name: 'London', timezone: 'Europe/London' }
+      ]));
+    });
+
+    // Navigate to a date-only URL (no tz params)
+    await page.goto('/?date=2026-12-25');
+
+    const datePicker = page.getByTestId('date-picker');
+    await expect(datePicker).toHaveValue('2026-12-25');
+
+    // Timezones should fall back to localStorage
+    const timezoneInfos = page.getByTestId('timezone-info');
+    await expect(timezoneInfos).toHaveCount(1);
+    await expect(timezoneInfos.first()).toContainText('London');
+  });
 });
