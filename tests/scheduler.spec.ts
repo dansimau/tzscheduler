@@ -332,6 +332,28 @@ test.describe('Hover line and 15-minute snapping', () => {
     expect(text).toContain('Tokyo');
   });
 
+  test('tooltip does not overflow right edge of viewport', async ({ page }) => {
+    await addTimezone(page, 'New York');
+
+    // Hover over the last hour cell (rightmost, most likely to overflow)
+    const hourGrid = page.getByTestId('hour-grid').first();
+    const lastCell = hourGrid.locator('[data-testid="hour-cell"]').last();
+
+    // Scroll the grid container so the last cell is visible
+    const container = page.getByTestId('hour-grids-container');
+    await container.evaluate((el) => { el.scrollLeft = el.scrollWidth; });
+
+    const box = await lastCell.boundingBox();
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+
+    const tooltip = page.getByTestId('hover-tooltip');
+    await expect(tooltip).toBeVisible();
+
+    const tooltipBox = await tooltip.boundingBox();
+    const viewportSize = page.viewportSize()!;
+    expect(tooltipBox!.x + tooltipBox!.width).toBeLessThanOrEqual(viewportSize.width);
+  });
+
   test('hover line snaps to 15-minute intervals', async ({ page }) => {
     await addTimezone(page, 'New York');
 

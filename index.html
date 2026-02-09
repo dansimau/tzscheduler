@@ -1885,9 +1885,9 @@
 
                     hoverTooltip.style.display = 'block';
                     hoverTooltip.textContent = `${info.tzName}: ${info.timeStr}`;
-                    hoverTooltip.style.left = `${info.clientX + 15}px`;
-                    hoverTooltip.style.top = `${info.clientY - 30}px`;
-                    hoverTooltip.style.transform = 'none';
+                    hoverTooltip.style.left = `${info.clientX}px`;
+                    hoverTooltip.style.top = `${info.clientY - 80}px`;
+                    hoverTooltip.style.transform = 'translateX(-50%)';
                 } else {
                     hoverLine.style.left = `${info.lineLeft}px`;
                     hoverLine.style.top = `${gridContainer.offsetTop}px`;
@@ -1899,6 +1899,19 @@
                     hoverTooltip.style.left = `${info.snapXOnScreen}px`;
                     hoverTooltip.style.top = `${info.gridTop - 30}px`;
                     hoverTooltip.style.transform = 'translateX(-50%)';
+                }
+
+                // Clamp tooltip to viewport so it doesn't overflow edges
+                const ttRect = hoverTooltip.getBoundingClientRect();
+                const vw = window.innerWidth;
+                const margin = 8;
+                if (ttRect.right > vw - margin) {
+                    hoverTooltip.style.left = `${parseFloat(hoverTooltip.style.left) - (ttRect.right - vw + margin)}px`;
+                } else if (ttRect.left < margin) {
+                    hoverTooltip.style.left = `${parseFloat(hoverTooltip.style.left) + (margin - ttRect.left)}px`;
+                }
+                if (ttRect.top < margin) {
+                    hoverTooltip.style.top = `${parseFloat(hoverTooltip.style.top) + (margin - ttRect.top)}px`;
                 }
             };
 
