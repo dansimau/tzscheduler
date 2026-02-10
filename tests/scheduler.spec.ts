@@ -1439,8 +1439,11 @@ test.describe('Invalid date handling', () => {
       el.dispatchEvent(new Event('change', { bubbles: true }));
     });
 
-    // Date picker should have the invalid class
+    // Date picker should have the invalid class and tooltip should be visible
     await expect(datePicker).toHaveClass(/invalid/);
+    const tooltip = page.getByTestId('date-picker-tooltip');
+    await expect(tooltip).toBeVisible();
+    await expect(tooltip).toHaveText('Invalid date');
 
     // Grid should not contain NaN
     const gridText = await page.getByTestId('hour-cell').first().textContent();
@@ -1467,5 +1470,7 @@ test.describe('Invalid date handling', () => {
     });
 
     await expect(datePicker).not.toHaveClass(/invalid/);
+    const tooltip = page.getByTestId('date-picker-tooltip');
+    await expect(tooltip).not.toBeVisible();
   });
 });
