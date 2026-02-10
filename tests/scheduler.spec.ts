@@ -466,6 +466,8 @@ test.describe('Touch interactions', () => {
     await page.setViewportSize({ width: 667, height: 375 });
 
     await addTimezone(page, 'New York');
+    // Wait for resize debounce to complete (100ms debounce + re-render)
+    await page.waitForTimeout(200);
 
     const hourCell = page.getByTestId('hour-cell').nth(5);
     const box = await hourCell.boundingBox();
@@ -498,6 +500,8 @@ test.describe('Touch interactions', () => {
     await page.setViewportSize({ width: 667, height: 375 });
 
     await addTimezone(page, 'New York');
+    // Wait for resize debounce to complete (100ms debounce + re-render)
+    await page.waitForTimeout(200);
 
     const hourCell = page.getByTestId('hour-cell').nth(5);
     const box = await hourCell.boundingBox();
@@ -541,6 +545,8 @@ test.describe('Touch interactions', () => {
     await page.setViewportSize({ width: 667, height: 375 });
 
     await addTimezone(page, 'UTC');
+    // Wait for resize debounce to complete (100ms debounce + re-render)
+    await page.waitForTimeout(200);
 
     const hourCell = page.getByTestId('hour-cell').nth(8);
     const box = await hourCell.boundingBox();
@@ -572,6 +578,8 @@ test.describe('Touch interactions', () => {
     await page.setViewportSize({ width: 667, height: 375 });
 
     await addTimezone(page, 'New York');
+    // Wait for resize debounce to complete (100ms debounce + re-render)
+    await page.waitForTimeout(200);
 
     const hourCell = page.getByTestId('hour-cell').nth(5);
     const box = await hourCell.boundingBox();
@@ -1102,7 +1110,7 @@ test.describe('Vertical layout - portrait mobile', () => {
   test('vertical mode only activates in portrait at correct breakpoint', async ({ page }) => {
     // Test that vertical layout doesn't activate in landscape even if width < 900px
     await page.setViewportSize({ width: 800, height: 500 });
-    await page.waitForTimeout(100);
+    await page.waitForTimeout(200);
 
     // Should still be horizontal layout
     const firstGrid = page.getByTestId('hour-grid').first();
@@ -1120,6 +1128,20 @@ test.describe('Vertical layout - portrait mobile', () => {
   test('current time line is vertical in landscape mode', async ({ page }) => {
     // Switch to landscape (width > 600 but landscape orientation)
     await page.setViewportSize({ width: 800, height: 500 });
+    await page.waitForTimeout(200);
+
+    // Scroll the grid so the current time is visible
+    await page.evaluate(() => {
+      const container = document.querySelector('.hour-grids-container');
+      if (!container) return;
+      const now = new Date();
+      const percentOfDay = (now.getHours() + now.getMinutes() / 60) / 24;
+      const firstCell = container.querySelector('.hour-cell') as HTMLElement;
+      const cellWidth = firstCell ? firstCell.offsetWidth : 40;
+      const position = percentOfDay * cellWidth * 24;
+      container.scrollLeft = Math.max(0, position - container.clientWidth / 2);
+    });
+    // Wait for scroll event to trigger line position update
     await page.waitForTimeout(100);
 
     const currentTimeLine = page.getByTestId('current-time-line');
@@ -1138,7 +1160,7 @@ test.describe('Vertical layout - portrait mobile', () => {
     await page.setViewportSize({ width: 667, height: 375 });
 
     // Need to re-render after viewport change
-    await page.waitForTimeout(100);
+    await page.waitForTimeout(200);
 
     const firstGrid = page.getByTestId('hour-grid').first();
     const cells = firstGrid.locator('[data-testid="hour-cell"]');

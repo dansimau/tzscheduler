@@ -1400,6 +1400,7 @@
 
             return {
                 subscribe,
+                notify,
                 loadFromStorage,
                 loadState,
                 addTimezone,
@@ -1556,7 +1557,7 @@
                         // If mode changed, force a re-render to update layout
                         if (currentMode !== previousMode) {
                             previousMode = currentMode;
-                            render(AppState.getState());
+                            AppState.notify();
                             // Wait for CSS media query to apply before updating line
                             setTimeout(updateCurrentTimeLine, 50);
                         } else {
@@ -1602,6 +1603,12 @@
                         </div>
                     </div>
                 `;
+
+                // Update current time line position on scroll
+                const hourGridsContainerEl = gridContainer.querySelector('.hour-grids-container');
+                if (hourGridsContainerEl) {
+                    hourGridsContainerEl.addEventListener('scroll', () => updateCurrentTimeLine(), { passive: true });
+                }
 
                 // Attach remove button handlers
                 gridContainer.querySelectorAll('.remove-btn').forEach(btn => {
@@ -1815,6 +1822,10 @@
                     const timezoneInfoColumn = gridContainer.querySelector('.timezone-info-column');
                     const headerHeight = timezoneInfoColumn ? timezoneInfoColumn.offsetHeight : 0;
 
+                    // Clear horizontal mode inline styles so CSS can apply
+                    currentTimeLine.style.left = '';
+                    currentTimeLine.style.height = '';
+
                     // Always show the line in vertical mode (it scrolls with the grid)
                     currentTimeLine.style.display = 'block';
                     currentTimeLine.style.top = `${gridContainer.offsetTop + headerHeight + positionInGrid}px`;
@@ -1985,9 +1996,7 @@
                 attachListeners();
 
                 // Re-attach listeners after render replaces innerHTML
-                AppState.subscribe(() => {
-                    requestAnimationFrame(attachListeners);
-                });
+                AppState.subscribe(attachListeners);
 
                 // Re-attach on orientation change
                 window.matchMedia('(max-width: 600px) and (orientation: portrait)')
