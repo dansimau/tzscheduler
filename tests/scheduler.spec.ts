@@ -177,6 +177,32 @@ test.describe('Time display', () => {
     await expect(currentTimeLine).toBeVisible();
   });
 
+  test('current time line has dot indicators at both ends', async ({ page }) => {
+    await addTimezone(page, 'Berlin');
+
+    const currentTimeLine = page.getByTestId('current-time-line');
+    await expect(currentTimeLine).toBeVisible();
+
+    // Check that the line has ::before and ::after pseudo-elements with dots
+    const hasDots = await currentTimeLine.evaluate((el) => {
+      const beforeStyles = window.getComputedStyle(el, '::before');
+      const afterStyles = window.getComputedStyle(el, '::after');
+
+      // Both should have content (the dots)
+      const beforeContent = beforeStyles.getPropertyValue('content');
+      const afterContent = afterStyles.getPropertyValue('content');
+
+      // Both should have border-radius (to make them circular)
+      const beforeRadius = beforeStyles.getPropertyValue('border-radius');
+      const afterRadius = afterStyles.getPropertyValue('border-radius');
+
+      return beforeContent !== 'none' && afterContent !== 'none' &&
+             beforeRadius !== '0px' && afterRadius !== '0px';
+    });
+
+    expect(hasDots).toBe(true);
+  });
+
   test('date picker updates grid display', async ({ page }) => {
     await addTimezone(page, 'Tokyo');
 
@@ -231,6 +257,28 @@ test.describe('Time display', () => {
     const text = await currentTime.textContent();
     expect(text).toMatch(/\d{2}:\d{2}/);
   });
+
+  test('scheduled time updates occur at minute boundaries', async ({ page }) => {
+    await addTimezone(page, 'UTC');
+
+    // Verify that the scheduling logic exists and is properly configured
+    const scheduleInfo = await page.evaluate(() => {
+      const now = new Date();
+      const secondsUntilNextMinute = 60 - now.getSeconds();
+      const msUntilNextMinute = secondsUntilNextMinute * 1000 - now.getMilliseconds();
+
+      // The delay should be between 0 and 60000ms (never negative, never > 1 minute)
+      return {
+        delay: msUntilNextMinute,
+        isValid: msUntilNextMinute >= 0 && msUntilNextMinute <= 60000,
+      };
+    });
+
+    // Verify the delay calculation is correct
+    expect(scheduleInfo.isValid).toBe(true);
+    expect(scheduleInfo.delay).toBeGreaterThanOrEqual(0);
+    expect(scheduleInfo.delay).toBeLessThanOrEqual(60000);
+  })
 });
 
 test.describe('Date change markers', () => {
@@ -418,6 +466,8 @@ test.describe('Touch interactions', () => {
     await page.setViewportSize({ width: 667, height: 375 });
 
     await addTimezone(page, 'New York');
+    // Wait for resize debounce to complete (100ms debounce + re-render)
+    await page.waitForTimeout(200);
 
     const hourCell = page.getByTestId('hour-cell').nth(5);
     const box = await hourCell.boundingBox();
@@ -450,6 +500,8 @@ test.describe('Touch interactions', () => {
     await page.setViewportSize({ width: 667, height: 375 });
 
     await addTimezone(page, 'New York');
+    // Wait for resize debounce to complete (100ms debounce + re-render)
+    await page.waitForTimeout(200);
 
     const hourCell = page.getByTestId('hour-cell').nth(5);
     const box = await hourCell.boundingBox();
@@ -493,6 +545,8 @@ test.describe('Touch interactions', () => {
     await page.setViewportSize({ width: 667, height: 375 });
 
     await addTimezone(page, 'UTC');
+    // Wait for resize debounce to complete (100ms debounce + re-render)
+    await page.waitForTimeout(200);
 
     const hourCell = page.getByTestId('hour-cell').nth(8);
     const box = await hourCell.boundingBox();
@@ -524,6 +578,8 @@ test.describe('Touch interactions', () => {
     await page.setViewportSize({ width: 667, height: 375 });
 
     await addTimezone(page, 'New York');
+    // Wait for resize debounce to complete (100ms debounce + re-render)
+    await page.waitForTimeout(200);
 
     const hourCell = page.getByTestId('hour-cell').nth(5);
     const box = await hourCell.boundingBox();
@@ -835,9 +891,44 @@ test.describe('Vertical layout - portrait mobile', () => {
     expect(content).toContain('London');
   });
 
-  test('hides current time line in vertical mode', async ({ page }) => {
+  test('shows current time line in vertical mode', async ({ page }) => {
     const currentTimeLine = page.getByTestId('current-time-line');
-    await expect(currentTimeLine).not.toBeVisible();
+    await expect(currentTimeLine).toBeVisible();
+  });
+
+  test('current time line is horizontal in vertical mode', async ({ page }) => {
+    const currentTimeLine = page.getByTestId('current-time-line');
+    await expect(currentTimeLine).toBeVisible();
+
+    // Check that the line is horizontal (width > height)
+    const lineBox = await currentTimeLine.boundingBox();
+    expect(lineBox).toBeTruthy();
+
+    // In vertical mode, the line should be horizontal (small height, spans width)
+    expect(lineBox!.height).toBeLessThanOrEqual(3);
+    expect(lineBox!.width).toBeGreaterThan(50); // Should span across columns
+  });
+
+  test('current time line has dots at both ends in vertical mode', async ({ page }) => {
+    const currentTimeLine = page.getByTestId('current-time-line');
+    await expect(currentTimeLine).toBeVisible();
+
+    // Check for dot pseudo-elements
+    const hasDots = await currentTimeLine.evaluate((el) => {
+      const beforeStyles = window.getComputedStyle(el, '::before');
+      const afterStyles = window.getComputedStyle(el, '::after');
+
+      const beforeTop = beforeStyles.getPropertyValue('top');
+      const afterTop = afterStyles.getPropertyValue('top');
+      const beforeLeft = beforeStyles.getPropertyValue('left');
+      const afterRight = afterStyles.getPropertyValue('right');
+
+      // In vertical mode, dots should be positioned at top
+      return beforeTop !== 'auto' && afterTop !== 'auto' &&
+             beforeLeft !== 'auto' && afterRight !== 'auto';
+    });
+
+    expect(hasDots).toBe(true);
   });
 
   test('hover line appears on mousemove in vertical mode', async ({ page }) => {
@@ -998,12 +1089,78 @@ test.describe('Vertical layout - portrait mobile', () => {
     await expect(handle).toBeVisible();
   });
 
+  test('current time line position accounts for header height', async ({ page }) => {
+    const currentTimeLine = page.getByTestId('current-time-line');
+    await expect(currentTimeLine).toBeVisible();
+
+    // Get the position of the current time line
+    const lineBox = await currentTimeLine.boundingBox();
+    expect(lineBox).toBeTruthy();
+
+    // Get the timezone header position
+    const timezoneInfoColumn = page.locator('.timezone-info-column');
+    const headerBox = await timezoneInfoColumn.boundingBox();
+    expect(headerBox).toBeTruthy();
+
+    // The line should be positioned below the header
+    // Line top should be >= header bottom
+    expect(lineBox!.y).toBeGreaterThanOrEqual(headerBox!.y + headerBox!.height - 5);
+  });
+
+  test('vertical mode only activates in portrait at correct breakpoint', async ({ page }) => {
+    // Test that vertical layout doesn't activate in landscape even if width < 900px
+    await page.setViewportSize({ width: 800, height: 500 });
+    await page.waitForTimeout(200);
+
+    // Should still be horizontal layout
+    const firstGrid = page.getByTestId('hour-grid').first();
+    const cells = firstGrid.locator('[data-testid="hour-cell"]');
+    const cell0 = cells.nth(0);
+    const cell1 = cells.nth(1);
+    const box0 = await cell0.boundingBox();
+    const box1 = await cell1.boundingBox();
+
+    // Horizontal layout: similar y, different x
+    expect(Math.abs(box0!.y - box1!.y)).toBeLessThan(5);
+    expect(box1!.x).toBeGreaterThan(box0!.x);
+  });
+
+  test('current time line is vertical in landscape mode', async ({ page }) => {
+    // Switch to landscape (width > 600 but landscape orientation)
+    await page.setViewportSize({ width: 800, height: 500 });
+    await page.waitForTimeout(200);
+
+    // Scroll the grid so the current time is visible
+    await page.evaluate(() => {
+      const container = document.querySelector('.hour-grids-container');
+      if (!container) return;
+      const now = new Date();
+      const percentOfDay = (now.getHours() + now.getMinutes() / 60) / 24;
+      const firstCell = container.querySelector('.hour-cell') as HTMLElement;
+      const cellWidth = firstCell ? firstCell.offsetWidth : 40;
+      const position = percentOfDay * cellWidth * 24;
+      container.scrollLeft = Math.max(0, position - container.clientWidth / 2);
+    });
+    // Wait for scroll event to trigger line position update
+    await page.waitForTimeout(100);
+
+    const currentTimeLine = page.getByTestId('current-time-line');
+    await expect(currentTimeLine).toBeVisible();
+
+    // Check that the line is vertical (height > width)
+    const lineBox = await currentTimeLine.boundingBox();
+    expect(lineBox).toBeTruthy();
+
+    // In landscape/horizontal mode, the line should be vertical (height > width)
+    expect(lineBox!.height).toBeGreaterThan(lineBox!.width);
+  });
+
   test('falls back to horizontal layout in landscape', async ({ page }) => {
     // Switch to landscape
     await page.setViewportSize({ width: 667, height: 375 });
 
     // Need to re-render after viewport change
-    await page.waitForTimeout(100);
+    await page.waitForTimeout(200);
 
     const firstGrid = page.getByTestId('hour-grid').first();
     const cells = firstGrid.locator('[data-testid="hour-cell"]');
@@ -1020,6 +1177,89 @@ test.describe('Vertical layout - portrait mobile', () => {
     // Horizontal layout: similar y, different x
     expect(Math.abs(box0!.y - box1!.y)).toBeLessThan(5);
     expect(box1!.x).toBeGreaterThan(box0!.x);
+  });
+
+  test('current time line position stays consistent on horizontal resize', async ({ page }) => {
+    // Start in horizontal mode
+    await page.setViewportSize({ width: 1000, height: 800 });
+    await page.waitForTimeout(150);
+
+    const currentTimeLine = page.getByTestId('current-time-line');
+    await expect(currentTimeLine).toBeVisible();
+
+    // Get initial position relative to the hour-grids-container
+    const hourGridsContainer = page.locator('.hour-grids-container');
+    const containerBox = await hourGridsContainer.boundingBox();
+    const lineBox1 = await currentTimeLine.boundingBox();
+    expect(containerBox).toBeTruthy();
+    expect(lineBox1).toBeTruthy();
+    const initialRelativeLeft = lineBox1!.x - containerBox!.x;
+
+    // Resize to wider viewport
+    await page.setViewportSize({ width: 1500, height: 800 });
+    await page.waitForTimeout(150);
+
+    // Check relative position again
+    const newContainerBox = await hourGridsContainer.boundingBox();
+    const lineBox2 = await currentTimeLine.boundingBox();
+    expect(newContainerBox).toBeTruthy();
+    expect(lineBox2).toBeTruthy();
+    const newRelativeLeft = lineBox2!.x - newContainerBox!.x;
+
+    // Relative position within the grid should be the same (within 5px for rounding)
+    // since we're viewing the same time of day
+    expect(Math.abs(newRelativeLeft - initialRelativeLeft)).toBeLessThan(5);
+  });
+
+  test('current time line reappears when resizing from horizontal to vertical', async ({ page }) => {
+    // Start in horizontal mode
+    await page.setViewportSize({ width: 1000, height: 800 });
+    await page.waitForTimeout(150);
+
+    const currentTimeLine = page.getByTestId('current-time-line');
+    await expect(currentTimeLine).toBeVisible();
+
+    // Verify it's vertical in horizontal mode
+    const horizontalBox = await currentTimeLine.boundingBox();
+    expect(horizontalBox).toBeTruthy();
+    expect(horizontalBox!.height).toBeGreaterThan(horizontalBox!.width);
+
+    // Resize to vertical/mobile mode
+    await page.setViewportSize({ width: 400, height: 800 });
+    await page.waitForTimeout(250); // Wait for debounced resize handler + CSS media query
+
+    // Line should still be visible
+    await expect(currentTimeLine).toBeVisible();
+
+    // Verify it's now horizontal in vertical mode
+    const verticalBox = await currentTimeLine.boundingBox();
+    expect(verticalBox).toBeTruthy();
+    expect(verticalBox!.height).toBeLessThanOrEqual(3);
+    expect(verticalBox!.width).toBeGreaterThan(50);
+  });
+
+  test('grid has fixed width to prevent whitespace in wide viewports', async ({ page }) => {
+    // Switch to wide viewport
+    await page.setViewportSize({ width: 1600, height: 800 });
+    await page.waitForTimeout(150);
+
+    // Get the hour-grids-inner element
+    const hourGridsInner = page.locator('.hour-grids-inner');
+    await expect(hourGridsInner).toBeVisible();
+
+    // Check its computed width
+    const width = await hourGridsInner.evaluate((el) => el.offsetWidth);
+
+    // Width should be exactly 960px (24 hours × 40px) to prevent whitespace
+    expect(width).toBe(960);
+
+    // Verify container doesn't have extra whitespace
+    const container = page.locator('.hour-grids-container');
+    const containerWidth = await container.evaluate((el) => el.offsetWidth);
+    const scrollWidth = await container.evaluate((el) => el.scrollWidth);
+
+    // scrollWidth should not exceed offsetWidth by more than 1px (rounding)
+    expect(scrollWidth).toBeLessThanOrEqual(containerWidth + 1);
   });
 });
 

@@ -260,7 +260,7 @@
         .hour-grids-inner {
             display: flex;
             flex-direction: column;
-            min-width: max-content;
+            width: 960px; /* 24 hours × 40px - fixed width prevents whitespace */
         }
 
         .hour-grid {
@@ -342,6 +342,17 @@
             content: '';
             position: absolute;
             top: -4px;
+            left: -4px;
+            width: 10px;
+            height: 10px;
+            background: #ff0000;
+            border-radius: 50%;
+        }
+
+        .current-time-line::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
             left: -4px;
             width: 10px;
             height: 10px;
@@ -716,7 +727,7 @@
                 grid-template-rows: repeat(24, auto);
                 grid-auto-flow: column;
                 grid-auto-columns: minmax(100px, 1fr);
-                min-width: unset;
+                width: auto; /* Override fixed width from horizontal mode */
                 column-gap: 1px;
                 background-color: #eee;
             }
@@ -742,9 +753,25 @@
                 overflow-x: visible;
             }
 
-            /* 5. Hide current time line */
+            /* 5. Current time line becomes horizontal */
             .current-time-line {
-                display: none !important;
+                width: auto !important;
+                height: 2px !important;
+                top: auto;
+                bottom: auto;
+                left: 0;
+                right: 0;
+            }
+
+            .current-time-line::before {
+                top: -4px;
+                left: -4px;
+            }
+
+            .current-time-line::after {
+                top: -4px;
+                right: -4px;
+                left: auto;
             }
 
             /* 6. Hover line becomes horizontal */
@@ -807,6 +834,12 @@
     </div>
 
     <script>
+        // ==================== Utility Functions ====================
+        // Centralized function to check if we're in vertical/mobile mode
+        // This ensures consistency across all modules
+        const isVerticalMode = () =>
+            window.matchMedia('(max-width: 600px) and (orientation: portrait)').matches;
+
         // ==================== Timezone Data Module ====================
         const TimezoneData = (() => {
             // Major cities mapped to IANA timezone names
@@ -1367,6 +1400,7 @@
 
             return {
                 subscribe,
+                notify,
                 loadFromStorage,
                 loadState,
                 addTimezone,
@@ -1468,6 +1502,40 @@
             let gridContainer;
             let currentTimeLine;
 
+            const updateTimeDisplays = () => {
+                const state = AppState.getState();
+                if (state.timezones.length === 0) return;
+
+                const now = new Date();
+                const timezoneInfos = gridContainer.querySelectorAll('[data-testid="timezone-info"]');
+
+                timezoneInfos.forEach((infoEl, index) => {
+                    const timezone = state.timezones[index]?.timezone;
+                    if (!timezone) return;
+
+                    const currentTime = TimezoneUtils.formatTime(timezone, now);
+                    const dayDate = TimezoneUtils.formatDayDate(timezone, now);
+                    const timeDisplay = infoEl.querySelector('[data-testid="timezone-current-time"]');
+
+                    if (timeDisplay) {
+                        timeDisplay.textContent = `${currentTime} · ${dayDate}`;
+                    }
+                });
+            };
+
+            const scheduleNextUpdate = () => {
+                const now = new Date();
+                const secondsUntilNextMinute = 60 - now.getSeconds();
+                const msUntilNextMinute = secondsUntilNextMinute * 1000 - now.getMilliseconds();
+
+                setTimeout(() => {
+                    updateCurrentTimeLine();
+                    updateTimeDisplays();
+                    // Schedule the next update at the next minute rollover
+                    scheduleNextUpdate();
+                }, msUntilNextMinute);
+            };
+
             const init = () => {
                 gridContainer = document.querySelector('[data-testid="timezone-grid"]');
                 currentTimeLine = document.querySelector('[data-testid="current-time-line"]');
@@ -1475,12 +1543,29 @@
                 AppState.subscribe(render);
                 render(AppState.getState());
 
-                // Update current time line every minute
+                // Update current time line and schedule updates at minute rollovers
                 updateCurrentTimeLine();
-                setInterval(updateCurrentTimeLine, 60000);
+                scheduleNextUpdate();
 
-                // Handle window resize
-                window.addEventListener('resize', updateCurrentTimeLine);
+                // Handle window resize with debouncing
+                let resizeTimeout;
+                let previousMode = isVerticalMode();
+                window.addEventListener('resize', () => {
+                    clearTimeout(resizeTimeout);
+                    resizeTimeout = setTimeout(() => {
+                        const currentMode = isVerticalMode();
+                        // If mode changed, force a re-render to update layout
+                        if (currentMode !== previousMode) {
+                            previousMode = currentMode;
+                            AppState.notify();
+                            // Wait for CSS media query to apply before updating line
+                            setTimeout(updateCurrentTimeLine, 50);
+                        } else {
+                            // Just update the line position
+                            updateCurrentTimeLine();
+                        }
+                    }, 100);
+                });
             };
 
             const render = (state) => {
@@ -1518,6 +1603,12 @@
                         </div>
                     </div>
                 `;
+
+                // Update current time line position on scroll
+                const hourGridsContainerEl = gridContainer.querySelector('.hour-grids-container');
+                if (hourGridsContainerEl) {
+                    hourGridsContainerEl.addEventListener('scroll', () => updateCurrentTimeLine(), { passive: true });
+                }
 
                 // Attach remove button handlers
                 gridContainer.querySelectorAll('.remove-btn').forEach(btn => {
@@ -1561,7 +1652,7 @@
                         if (dragSourceIndex === null || index === dragSourceIndex) return;
 
                         const rect = info.getBoundingClientRect();
-                        const isVertical = window.matchMedia('(max-width: 600px) and (orientation: portrait)').matches;
+                        const isVertical = isVerticalMode();
                         const midpoint = isVertical
                             ? rect.left + rect.width / 2
                             : rect.top + rect.height / 2;
@@ -1584,7 +1675,7 @@
                         if (Number.isNaN(fromIndex)) return;
 
                         const rect = info.getBoundingClientRect();
-                        const isVertical = window.matchMedia('(max-width: 600px) and (orientation: portrait)').matches;
+                        const isVertical = isVerticalMode();
                         const midpoint = isVertical
                             ? rect.left + rect.width / 2
                             : rect.top + rect.height / 2;
@@ -1718,26 +1809,48 @@
                 const minutes = now.getMinutes();
                 const percentOfDay = (hours + minutes / 60) / 24;
 
-                // Get the inner width (total scrollable width)
+                // Get the inner width/height (total scrollable dimension)
                 const hourGridsInner = gridContainer.querySelector('.hour-grids-inner');
-                const innerWidth = hourGridsInner ? hourGridsInner.scrollWidth : containerRect.width;
 
-                // Account for scroll position
-                const scrollLeft = hourGridsContainer.scrollLeft;
-                const positionInGrid = percentOfDay * innerWidth - scrollLeft;
+                if (isVerticalMode()) {
+                    // Vertical mode: line is horizontal
+                    const innerHeight = hourGridsInner ? hourGridsInner.scrollHeight : containerRect.height;
+                    const scrollTop = gridContainer.scrollTop;
+                    const positionInGrid = percentOfDay * innerHeight - scrollTop;
 
-                // Only show if visible in viewport
-                if (positionInGrid < 0 || positionInGrid > containerRect.width) {
-                    currentTimeLine.style.display = 'none';
-                    return;
+                    // Account for the timezone header height in vertical mode
+                    const timezoneInfoColumn = gridContainer.querySelector('.timezone-info-column');
+                    const headerHeight = timezoneInfoColumn ? timezoneInfoColumn.offsetHeight : 0;
+
+                    // Clear horizontal mode inline styles so CSS can apply
+                    currentTimeLine.style.left = '';
+                    currentTimeLine.style.height = '';
+
+                    // Always show the line in vertical mode (it scrolls with the grid)
+                    currentTimeLine.style.display = 'block';
+                    currentTimeLine.style.top = `${gridContainer.offsetTop + headerHeight + positionInGrid}px`;
+                } else {
+                    // Horizontal mode: line is vertical
+                    // Calculate width based on actual cell width, not scrollWidth
+                    const firstCell = hourGridsInner ? hourGridsInner.querySelector('.hour-cell') : null;
+                    const cellWidth = firstCell ? firstCell.offsetWidth : 40;
+                    const innerWidth = cellWidth * 24; // 24 hours
+                    const scrollLeft = hourGridsContainer.scrollLeft;
+                    const positionInGrid = percentOfDay * innerWidth - scrollLeft;
+
+                    // Only show if visible in viewport
+                    if (positionInGrid < 0 || positionInGrid > containerRect.width) {
+                        currentTimeLine.style.display = 'none';
+                        return;
+                    }
+
+                    const leftPosition = infoWidth + positionInGrid;
+
+                    currentTimeLine.style.display = 'block';
+                    currentTimeLine.style.left = `${leftPosition}px`;
+                    currentTimeLine.style.top = `${gridContainer.offsetTop}px`;
+                    currentTimeLine.style.height = `${gridContainer.offsetHeight}px`;
                 }
-
-                const leftPosition = infoWidth + positionInGrid;
-
-                currentTimeLine.style.display = 'block';
-                currentTimeLine.style.left = `${leftPosition}px`;
-                currentTimeLine.style.top = `${gridContainer.offsetTop}px`;
-                currentTimeLine.style.height = `${gridContainer.offsetHeight}px`;
             };
 
             return { init, updateCurrentTimeLine };
@@ -1875,9 +1988,6 @@
             const MOVE_CANCEL_PX = 10;
             let suppressClick = false;
 
-            const isVerticalMode = () =>
-                window.matchMedia('(max-width: 600px) and (orientation: portrait)').matches;
-
             const init = () => {
                 hoverLine = document.querySelector('[data-testid="hover-time-line"]');
                 hoverTooltip = document.querySelector('[data-testid="hover-tooltip"]');
@@ -1886,9 +1996,7 @@
                 attachListeners();
 
                 // Re-attach listeners after render replaces innerHTML
-                AppState.subscribe(() => {
-                    requestAnimationFrame(attachListeners);
-                });
+                AppState.subscribe(attachListeners);
 
                 // Re-attach on orientation change
                 window.matchMedia('(max-width: 600px) and (orientation: portrait)')
@@ -2251,9 +2359,6 @@
         const StickyHeaderController = (() => {
             let gridContainer;
             let clone = null;
-
-            const isVerticalMode = () =>
-                window.matchMedia('(max-width: 600px) and (orientation: portrait)').matches;
 
             const init = () => {
                 gridContainer = document.querySelector('[data-testid="timezone-grid"]');
