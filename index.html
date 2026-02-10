@@ -834,6 +834,12 @@
     </div>
 
     <script>
+        // ==================== Utility Functions ====================
+        // Centralized function to check if we're in vertical/mobile mode
+        // This ensures consistency across all modules
+        const isVerticalMode = () =>
+            window.matchMedia('(max-width: 600px) and (orientation: portrait)').matches;
+
         // ==================== Timezone Data Module ====================
         const TimezoneData = (() => {
             // Major cities mapped to IANA timezone names
@@ -1622,7 +1628,7 @@
                         if (dragSourceIndex === null || index === dragSourceIndex) return;
 
                         const rect = info.getBoundingClientRect();
-                        const isVertical = window.matchMedia('(max-width: 600px) and (orientation: portrait)').matches;
+                        const isVertical = isVerticalMode();
                         const midpoint = isVertical
                             ? rect.left + rect.width / 2
                             : rect.top + rect.height / 2;
@@ -1645,7 +1651,7 @@
                         if (Number.isNaN(fromIndex)) return;
 
                         const rect = info.getBoundingClientRect();
-                        const isVertical = window.matchMedia('(max-width: 600px) and (orientation: portrait)').matches;
+                        const isVertical = isVerticalMode();
                         const midpoint = isVertical
                             ? rect.left + rect.width / 2
                             : rect.top + rect.height / 2;
@@ -1782,18 +1788,19 @@
                 // Get the inner width/height (total scrollable dimension)
                 const hourGridsInner = gridContainer.querySelector('.hour-grids-inner');
 
-                // Check if we're in vertical mode (max-width: 900px)
-                const isVerticalMode = window.matchMedia('(max-width: 900px)').matches;
-
-                if (isVerticalMode) {
+                if (isVerticalMode()) {
                     // Vertical mode: line is horizontal
                     const innerHeight = hourGridsInner ? hourGridsInner.scrollHeight : containerRect.height;
                     const scrollTop = gridContainer.scrollTop;
                     const positionInGrid = percentOfDay * innerHeight - scrollTop;
 
+                    // Account for the timezone header height in vertical mode
+                    const timezoneInfoColumn = gridContainer.querySelector('.timezone-info-column');
+                    const headerHeight = timezoneInfoColumn ? timezoneInfoColumn.offsetHeight : 0;
+
                     // Always show the line in vertical mode (it scrolls with the grid)
                     currentTimeLine.style.display = 'block';
-                    currentTimeLine.style.top = `${gridContainer.offsetTop + positionInGrid}px`;
+                    currentTimeLine.style.top = `${gridContainer.offsetTop + headerHeight + positionInGrid}px`;
                 } else {
                     // Horizontal mode: line is vertical
                     const innerWidth = hourGridsInner ? hourGridsInner.scrollWidth : containerRect.width;
@@ -1949,9 +1956,6 @@
             const HOLD_THRESHOLD_MS = 300;
             const MOVE_CANCEL_PX = 10;
             let suppressClick = false;
-
-            const isVerticalMode = () =>
-                window.matchMedia('(max-width: 600px) and (orientation: portrait)').matches;
 
             const init = () => {
                 hoverLine = document.querySelector('[data-testid="hover-time-line"]');
@@ -2326,9 +2330,6 @@
         const StickyHeaderController = (() => {
             let gridContainer;
             let clone = null;
-
-            const isVerticalMode = () =>
-                window.matchMedia('(max-width: 600px) and (orientation: portrait)').matches;
 
             const init = () => {
                 gridContainer = document.querySelector('[data-testid="timezone-grid"]');

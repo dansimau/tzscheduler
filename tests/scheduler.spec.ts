@@ -1081,6 +1081,58 @@ test.describe('Vertical layout - portrait mobile', () => {
     await expect(handle).toBeVisible();
   });
 
+  test('current time line position accounts for header height', async ({ page }) => {
+    const currentTimeLine = page.getByTestId('current-time-line');
+    await expect(currentTimeLine).toBeVisible();
+
+    // Get the position of the current time line
+    const lineBox = await currentTimeLine.boundingBox();
+    expect(lineBox).toBeTruthy();
+
+    // Get the timezone header position
+    const timezoneInfoColumn = page.locator('.timezone-info-column');
+    const headerBox = await timezoneInfoColumn.boundingBox();
+    expect(headerBox).toBeTruthy();
+
+    // The line should be positioned below the header
+    // Line top should be >= header bottom
+    expect(lineBox!.y).toBeGreaterThanOrEqual(headerBox!.y + headerBox!.height - 5);
+  });
+
+  test('vertical mode only activates in portrait at correct breakpoint', async ({ page }) => {
+    // Test that vertical layout doesn't activate in landscape even if width < 900px
+    await page.setViewportSize({ width: 800, height: 500 });
+    await page.waitForTimeout(100);
+
+    // Should still be horizontal layout
+    const firstGrid = page.getByTestId('hour-grid').first();
+    const cells = firstGrid.locator('[data-testid="hour-cell"]');
+    const cell0 = cells.nth(0);
+    const cell1 = cells.nth(1);
+    const box0 = await cell0.boundingBox();
+    const box1 = await cell1.boundingBox();
+
+    // Horizontal layout: similar y, different x
+    expect(Math.abs(box0!.y - box1!.y)).toBeLessThan(5);
+    expect(box1!.x).toBeGreaterThan(box0!.x);
+  });
+
+  test('current time line is vertical in landscape mode', async ({ page }) => {
+    // Switch to landscape (width > 600 but landscape orientation)
+    await page.setViewportSize({ width: 800, height: 500 });
+    await page.waitForTimeout(100);
+
+    const currentTimeLine = page.getByTestId('current-time-line');
+    await expect(currentTimeLine).toBeVisible();
+
+    // Check that the line is vertical (height > width)
+    const lineBox = await currentTimeLine.boundingBox();
+    expect(lineBox).toBeTruthy();
+
+    // In landscape/horizontal mode, the line should be vertical (height > width)
+    expect(lineBox!.height).toBeGreaterThan(lineBox!.width);
+  });
+
   test('falls back to horizontal layout in landscape', async ({ page }) => {
     // Switch to landscape
     await page.setViewportSize({ width: 667, height: 375 });
