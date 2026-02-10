@@ -49,7 +49,12 @@ jobs:
             actions: read
 
           # Optional: Give a custom prompt to Claude. If this is not specified, Claude will perform the instructions specified in the comment that tagged it.
-          # prompt: 'Update the pull request description to include a summary of changes.'
+          prompt: |
+            Address the issues or feedback from the comment or issue you were tagged in.
+
+            When adding features or fixing bugs, ensure there is a test that covers the new functionality or bug fix. If there are existing flaky tests, always just fix them, even if they are unrelated to your changes.
+
+            Whenever you are done working, always post a comment with a link to preview the latest changes using githack.com and the raw index.html URL based on the last commit. For example, if you URL to the raw index.html is "https://raw.githubusercontent.com/dansimau/tzscheduler/77353183f55b7c1889ac9c0495a96b52202ed278/index.html", the preview URL becomes "https://raw.githack.com/dansimau/tzscheduler/77353183f55b7c1889ac9c0495a96b52202ed278/index.html".
 
           # Optional: Add claude_args to customize behavior and configuration
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
