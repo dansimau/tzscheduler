@@ -2298,14 +2298,21 @@
             // Auto-scroll helpers for touch-hold drag
             const computeAutoScroll = (clientY) => {
                 const vh = window.innerHeight;
-                if (clientY < AUTO_SCROLL_EDGE_PX) {
-                    const depth = AUTO_SCROLL_EDGE_PX - clientY;
-                    const t = depth / AUTO_SCROLL_EDGE_PX;
+
+                // Account for sticky header at the top of the viewport
+                const stickyClone = document.querySelector('.sticky-header-clone');
+                const topOffset = stickyClone ? stickyClone.offsetHeight : 0;
+
+                const topEdge = topOffset + AUTO_SCROLL_EDGE_PX;
+                if (clientY < topEdge) {
+                    const depth = topEdge - clientY;
+                    const zone = AUTO_SCROLL_EDGE_PX + topOffset;
+                    const t = Math.min(1, depth / zone);
                     return { dir: -1, speed: AUTO_SCROLL_MIN_PX + t * (AUTO_SCROLL_MAX_PX - AUTO_SCROLL_MIN_PX) };
                 }
                 if (clientY > vh - AUTO_SCROLL_EDGE_PX) {
                     const depth = clientY - (vh - AUTO_SCROLL_EDGE_PX);
-                    const t = depth / AUTO_SCROLL_EDGE_PX;
+                    const t = Math.min(1, depth / AUTO_SCROLL_EDGE_PX);
                     return { dir: 1, speed: AUTO_SCROLL_MIN_PX + t * (AUTO_SCROLL_MAX_PX - AUTO_SCROLL_MIN_PX) };
                 }
                 return { dir: 0, speed: 0 };
