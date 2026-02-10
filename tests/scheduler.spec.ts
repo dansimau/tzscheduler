@@ -835,9 +835,9 @@ test.describe('Vertical layout - portrait mobile', () => {
     expect(content).toContain('London');
   });
 
-  test('hides current time line in vertical mode', async ({ page }) => {
+  test('shows current time line in vertical mode', async ({ page }) => {
     const currentTimeLine = page.getByTestId('current-time-line');
-    await expect(currentTimeLine).not.toBeVisible();
+    await expect(currentTimeLine).toBeVisible();
   });
 
   test('hover line appears on mousemove in vertical mode', async ({ page }) => {

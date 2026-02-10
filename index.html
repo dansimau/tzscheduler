@@ -349,6 +349,17 @@
             border-radius: 50%;
         }
 
+        .current-time-line::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: -4px;
+            width: 10px;
+            height: 10px;
+            background: #ff0000;
+            border-radius: 50%;
+        }
+
         .hover-time-line {
             position: absolute;
             top: 0;
@@ -742,9 +753,25 @@
                 overflow-x: visible;
             }
 
-            /* 5. Hide current time line */
+            /* 5. Current time line becomes horizontal */
             .current-time-line {
-                display: none !important;
+                width: auto !important;
+                height: 2px !important;
+                top: auto;
+                bottom: auto;
+                left: 0;
+                right: 0;
+            }
+
+            .current-time-line::before {
+                top: -4px;
+                left: -4px;
+            }
+
+            .current-time-line::after {
+                top: -4px;
+                right: -4px;
+                left: auto;
             }
 
             /* 6. Hover line becomes horizontal */
@@ -1468,6 +1495,18 @@
             let gridContainer;
             let currentTimeLine;
 
+            const scheduleNextUpdate = () => {
+                const now = new Date();
+                const secondsUntilNextMinute = 60 - now.getSeconds();
+                const msUntilNextMinute = secondsUntilNextMinute * 1000 - now.getMilliseconds();
+
+                setTimeout(() => {
+                    updateCurrentTimeLine();
+                    // Schedule the next update at the next minute rollover
+                    scheduleNextUpdate();
+                }, msUntilNextMinute);
+            };
+
             const init = () => {
                 gridContainer = document.querySelector('[data-testid="timezone-grid"]');
                 currentTimeLine = document.querySelector('[data-testid="current-time-line"]');
@@ -1475,9 +1514,9 @@
                 AppState.subscribe(render);
                 render(AppState.getState());
 
-                // Update current time line every minute
+                // Update current time line and schedule updates at minute rollovers
                 updateCurrentTimeLine();
-                setInterval(updateCurrentTimeLine, 60000);
+                scheduleNextUpdate();
 
                 // Handle window resize
                 window.addEventListener('resize', updateCurrentTimeLine);
@@ -1718,26 +1757,40 @@
                 const minutes = now.getMinutes();
                 const percentOfDay = (hours + minutes / 60) / 24;
 
-                // Get the inner width (total scrollable width)
+                // Get the inner width/height (total scrollable dimension)
                 const hourGridsInner = gridContainer.querySelector('.hour-grids-inner');
-                const innerWidth = hourGridsInner ? hourGridsInner.scrollWidth : containerRect.width;
 
-                // Account for scroll position
-                const scrollLeft = hourGridsContainer.scrollLeft;
-                const positionInGrid = percentOfDay * innerWidth - scrollLeft;
+                // Check if we're in vertical mode (max-width: 900px)
+                const isVerticalMode = window.matchMedia('(max-width: 900px)').matches;
 
-                // Only show if visible in viewport
-                if (positionInGrid < 0 || positionInGrid > containerRect.width) {
-                    currentTimeLine.style.display = 'none';
-                    return;
+                if (isVerticalMode) {
+                    // Vertical mode: line is horizontal
+                    const innerHeight = hourGridsInner ? hourGridsInner.scrollHeight : containerRect.height;
+                    const scrollTop = gridContainer.scrollTop;
+                    const positionInGrid = percentOfDay * innerHeight - scrollTop;
+
+                    // Always show the line in vertical mode (it scrolls with the grid)
+                    currentTimeLine.style.display = 'block';
+                    currentTimeLine.style.top = `${gridContainer.offsetTop + positionInGrid}px`;
+                } else {
+                    // Horizontal mode: line is vertical
+                    const innerWidth = hourGridsInner ? hourGridsInner.scrollWidth : containerRect.width;
+                    const scrollLeft = hourGridsContainer.scrollLeft;
+                    const positionInGrid = percentOfDay * innerWidth - scrollLeft;
+
+                    // Only show if visible in viewport
+                    if (positionInGrid < 0 || positionInGrid > containerRect.width) {
+                        currentTimeLine.style.display = 'none';
+                        return;
+                    }
+
+                    const leftPosition = infoWidth + positionInGrid;
+
+                    currentTimeLine.style.display = 'block';
+                    currentTimeLine.style.left = `${leftPosition}px`;
+                    currentTimeLine.style.top = `${gridContainer.offsetTop}px`;
+                    currentTimeLine.style.height = `${gridContainer.offsetHeight}px`;
                 }
-
-                const leftPosition = infoWidth + positionInGrid;
-
-                currentTimeLine.style.display = 'block';
-                currentTimeLine.style.left = `${leftPosition}px`;
-                currentTimeLine.style.top = `${gridContainer.offsetTop}px`;
-                currentTimeLine.style.height = `${gridContainer.offsetHeight}px`;
             };
 
             return { init, updateCurrentTimeLine };
