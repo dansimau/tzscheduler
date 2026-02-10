@@ -261,6 +261,7 @@
             display: flex;
             flex-direction: column;
             min-width: max-content;
+            max-width: 960px; /* 24 hours × 40px */
         }
 
         .hour-grid {
@@ -1546,8 +1547,23 @@
                 updateCurrentTimeLine();
                 scheduleNextUpdate();
 
-                // Handle window resize
-                window.addEventListener('resize', updateCurrentTimeLine);
+                // Handle window resize with debouncing
+                let resizeTimeout;
+                let previousMode = isVerticalMode();
+                window.addEventListener('resize', () => {
+                    clearTimeout(resizeTimeout);
+                    resizeTimeout = setTimeout(() => {
+                        const currentMode = isVerticalMode();
+                        // If mode changed, force a re-render to update layout
+                        if (currentMode !== previousMode) {
+                            previousMode = currentMode;
+                            render(AppState.getState());
+                        } else {
+                            // Just update the line position
+                            updateCurrentTimeLine();
+                        }
+                    }, 100);
+                });
             };
 
             const render = (state) => {
@@ -1803,7 +1819,10 @@
                     currentTimeLine.style.top = `${gridContainer.offsetTop + headerHeight + positionInGrid}px`;
                 } else {
                     // Horizontal mode: line is vertical
-                    const innerWidth = hourGridsInner ? hourGridsInner.scrollWidth : containerRect.width;
+                    // Calculate width based on actual cell width, not scrollWidth
+                    const firstCell = hourGridsInner ? hourGridsInner.querySelector('.hour-cell') : null;
+                    const cellWidth = firstCell ? firstCell.offsetWidth : 40;
+                    const innerWidth = cellWidth * 24; // 24 hours
                     const scrollLeft = hourGridsContainer.scrollLeft;
                     const positionInGrid = percentOfDay * innerWidth - scrollLeft;
 

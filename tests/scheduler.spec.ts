@@ -1156,6 +1156,81 @@ test.describe('Vertical layout - portrait mobile', () => {
     expect(Math.abs(box0!.y - box1!.y)).toBeLessThan(5);
     expect(box1!.x).toBeGreaterThan(box0!.x);
   });
+
+  test('current time line position stays consistent on horizontal resize', async ({ page }) => {
+    // Start in horizontal mode
+    await page.setViewportSize({ width: 1000, height: 800 });
+    await page.waitForTimeout(150);
+
+    const currentTimeLine = page.getByTestId('current-time-line');
+    await expect(currentTimeLine).toBeVisible();
+
+    // Get initial position relative to the hour-grids-container
+    const hourGridsContainer = page.locator('.hour-grids-container');
+    const containerBox = await hourGridsContainer.boundingBox();
+    const lineBox1 = await currentTimeLine.boundingBox();
+    expect(containerBox).toBeTruthy();
+    expect(lineBox1).toBeTruthy();
+    const initialRelativeLeft = lineBox1!.x - containerBox!.x;
+
+    // Resize to wider viewport
+    await page.setViewportSize({ width: 1500, height: 800 });
+    await page.waitForTimeout(150);
+
+    // Check relative position again
+    const newContainerBox = await hourGridsContainer.boundingBox();
+    const lineBox2 = await currentTimeLine.boundingBox();
+    expect(newContainerBox).toBeTruthy();
+    expect(lineBox2).toBeTruthy();
+    const newRelativeLeft = lineBox2!.x - newContainerBox!.x;
+
+    // Relative position within the grid should be the same (within 5px for rounding)
+    // since we're viewing the same time of day
+    expect(Math.abs(newRelativeLeft - initialRelativeLeft)).toBeLessThan(5);
+  });
+
+  test('current time line reappears when resizing from horizontal to vertical', async ({ page }) => {
+    // Start in horizontal mode
+    await page.setViewportSize({ width: 1000, height: 800 });
+    await page.waitForTimeout(150);
+
+    const currentTimeLine = page.getByTestId('current-time-line');
+    await expect(currentTimeLine).toBeVisible();
+
+    // Verify it's vertical in horizontal mode
+    const horizontalBox = await currentTimeLine.boundingBox();
+    expect(horizontalBox).toBeTruthy();
+    expect(horizontalBox!.height).toBeGreaterThan(horizontalBox!.width);
+
+    // Resize to vertical/mobile mode
+    await page.setViewportSize({ width: 400, height: 800 });
+    await page.waitForTimeout(200); // Wait for debounced resize handler
+
+    // Line should still be visible
+    await expect(currentTimeLine).toBeVisible();
+
+    // Verify it's now horizontal in vertical mode
+    const verticalBox = await currentTimeLine.boundingBox();
+    expect(verticalBox).toBeTruthy();
+    expect(verticalBox!.height).toBeLessThanOrEqual(3);
+    expect(verticalBox!.width).toBeGreaterThan(50);
+  });
+
+  test('grid has max-width to prevent whitespace in wide viewports', async ({ page }) => {
+    // Switch to wide viewport
+    await page.setViewportSize({ width: 1600, height: 800 });
+    await page.waitForTimeout(150);
+
+    // Get the hour-grids-inner element
+    const hourGridsInner = page.locator('.hour-grids-inner');
+    await expect(hourGridsInner).toBeVisible();
+
+    // Check its computed width
+    const width = await hourGridsInner.evaluate((el) => el.offsetWidth);
+
+    // Width should be capped at 960px (24 hours × 40px)
+    expect(width).toBeLessThanOrEqual(960);
+  });
 });
 
 test.describe('Drag to reorder timezones', () => {
