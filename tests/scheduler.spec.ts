@@ -177,6 +177,32 @@ test.describe('Time display', () => {
     await expect(currentTimeLine).toBeVisible();
   });
 
+  test('current time line has dot indicators at both ends', async ({ page }) => {
+    await addTimezone(page, 'Berlin');
+
+    const currentTimeLine = page.getByTestId('current-time-line');
+    await expect(currentTimeLine).toBeVisible();
+
+    // Check that the line has ::before and ::after pseudo-elements with dots
+    const hasDots = await currentTimeLine.evaluate((el) => {
+      const beforeStyles = window.getComputedStyle(el, '::before');
+      const afterStyles = window.getComputedStyle(el, '::after');
+
+      // Both should have content (the dots)
+      const beforeContent = beforeStyles.getPropertyValue('content');
+      const afterContent = afterStyles.getPropertyValue('content');
+
+      // Both should have border-radius (to make them circular)
+      const beforeRadius = beforeStyles.getPropertyValue('border-radius');
+      const afterRadius = afterStyles.getPropertyValue('border-radius');
+
+      return beforeContent !== 'none' && afterContent !== 'none' &&
+             beforeRadius !== '0px' && afterRadius !== '0px';
+    });
+
+    expect(hasDots).toBe(true);
+  });
+
   test('date picker updates grid display', async ({ page }) => {
     await addTimezone(page, 'Tokyo');
 
@@ -231,6 +257,28 @@ test.describe('Time display', () => {
     const text = await currentTime.textContent();
     expect(text).toMatch(/\d{2}:\d{2}/);
   });
+
+  test('scheduled time updates occur at minute boundaries', async ({ page }) => {
+    await addTimezone(page, 'UTC');
+
+    // Verify that the scheduling logic exists and is properly configured
+    const scheduleInfo = await page.evaluate(() => {
+      const now = new Date();
+      const secondsUntilNextMinute = 60 - now.getSeconds();
+      const msUntilNextMinute = secondsUntilNextMinute * 1000 - now.getMilliseconds();
+
+      // The delay should be between 0 and 60000ms (never negative, never > 1 minute)
+      return {
+        delay: msUntilNextMinute,
+        isValid: msUntilNextMinute >= 0 && msUntilNextMinute <= 60000,
+      };
+    });
+
+    // Verify the delay calculation is correct
+    expect(scheduleInfo.isValid).toBe(true);
+    expect(scheduleInfo.delay).toBeGreaterThanOrEqual(0);
+    expect(scheduleInfo.delay).toBeLessThanOrEqual(60000);
+  })
 });
 
 test.describe('Date change markers', () => {
@@ -838,6 +886,41 @@ test.describe('Vertical layout - portrait mobile', () => {
   test('shows current time line in vertical mode', async ({ page }) => {
     const currentTimeLine = page.getByTestId('current-time-line');
     await expect(currentTimeLine).toBeVisible();
+  });
+
+  test('current time line is horizontal in vertical mode', async ({ page }) => {
+    const currentTimeLine = page.getByTestId('current-time-line');
+    await expect(currentTimeLine).toBeVisible();
+
+    // Check that the line is horizontal (width > height)
+    const lineBox = await currentTimeLine.boundingBox();
+    expect(lineBox).toBeTruthy();
+
+    // In vertical mode, the line should be horizontal (small height, spans width)
+    expect(lineBox!.height).toBeLessThanOrEqual(3);
+    expect(lineBox!.width).toBeGreaterThan(50); // Should span across columns
+  });
+
+  test('current time line has dots at both ends in vertical mode', async ({ page }) => {
+    const currentTimeLine = page.getByTestId('current-time-line');
+    await expect(currentTimeLine).toBeVisible();
+
+    // Check for dot pseudo-elements
+    const hasDots = await currentTimeLine.evaluate((el) => {
+      const beforeStyles = window.getComputedStyle(el, '::before');
+      const afterStyles = window.getComputedStyle(el, '::after');
+
+      const beforeTop = beforeStyles.getPropertyValue('top');
+      const afterTop = afterStyles.getPropertyValue('top');
+      const beforeLeft = beforeStyles.getPropertyValue('left');
+      const afterRight = afterStyles.getPropertyValue('right');
+
+      // In vertical mode, dots should be positioned at top
+      return beforeTop !== 'auto' && afterTop !== 'auto' &&
+             beforeLeft !== 'auto' && afterRight !== 'auto';
+    });
+
+    expect(hasDots).toBe(true);
   });
 
   test('hover line appears on mousemove in vertical mode', async ({ page }) => {

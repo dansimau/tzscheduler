@@ -1495,6 +1495,27 @@
             let gridContainer;
             let currentTimeLine;
 
+            const updateTimeDisplays = () => {
+                const state = AppState.getState();
+                if (state.timezones.length === 0) return;
+
+                const now = new Date();
+                const timezoneInfos = gridContainer.querySelectorAll('[data-testid="timezone-info"]');
+
+                timezoneInfos.forEach((infoEl, index) => {
+                    const timezone = state.timezones[index]?.timezone;
+                    if (!timezone) return;
+
+                    const currentTime = TimezoneUtils.formatTime(timezone, now);
+                    const dayDate = TimezoneUtils.formatDayDate(timezone, now);
+                    const timeDisplay = infoEl.querySelector('[data-testid="timezone-current-time"]');
+
+                    if (timeDisplay) {
+                        timeDisplay.textContent = `${currentTime} · ${dayDate}`;
+                    }
+                });
+            };
+
             const scheduleNextUpdate = () => {
                 const now = new Date();
                 const secondsUntilNextMinute = 60 - now.getSeconds();
@@ -1502,6 +1523,7 @@
 
                 setTimeout(() => {
                     updateCurrentTimeLine();
+                    updateTimeDisplays();
                     // Schedule the next update at the next minute rollover
                     scheduleNextUpdate();
                 }, msUntilNextMinute);
