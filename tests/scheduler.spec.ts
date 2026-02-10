@@ -1420,3 +1420,57 @@ test.describe('Mobile header bug fixes', () => {
     await expect(hoverLine).toBeVisible();
   });
 });
+
+test.describe('Invalid date handling', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.evaluate(() => localStorage.clear());
+    await page.reload();
+  });
+
+  test('clearing date shows red outline and does not break grid', async ({ page }) => {
+    await addTimezone(page, 'London');
+
+    const datePicker = page.getByTestId('date-picker');
+
+    // Clear the date input
+    await datePicker.evaluate((el) => {
+      (el as HTMLInputElement).value = '';
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    // Date picker should have the invalid class and tooltip should be visible
+    await expect(datePicker).toHaveClass(/invalid/);
+    const tooltip = page.getByTestId('date-picker-tooltip');
+    await expect(tooltip).toBeVisible();
+    await expect(tooltip).toHaveText('Invalid date');
+
+    // Grid should not contain NaN
+    const gridText = await page.getByTestId('hour-cell').first().textContent();
+    expect(gridText).not.toContain('NaN');
+  });
+
+  test('valid date after invalid clears red outline', async ({ page }) => {
+    await addTimezone(page, 'Tokyo');
+
+    const datePicker = page.getByTestId('date-picker');
+
+    // First set an invalid date
+    await datePicker.evaluate((el) => {
+      (el as HTMLInputElement).value = '';
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    await expect(datePicker).toHaveClass(/invalid/);
+
+    // Now set a valid date
+    await datePicker.evaluate((el) => {
+      (el as HTMLInputElement).value = '2026-06-15';
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    await expect(datePicker).not.toHaveClass(/invalid/);
+    const tooltip = page.getByTestId('date-picker-tooltip');
+    await expect(tooltip).not.toBeVisible();
+  });
+});

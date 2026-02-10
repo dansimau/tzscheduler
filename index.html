@@ -129,6 +129,46 @@
             border-color: #0066cc;
         }
 
+        .date-picker-container {
+            position: relative;
+        }
+
+        .date-picker.invalid {
+            border-color: #dc3545;
+            box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.25);
+        }
+
+        .date-picker-tooltip {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-top: 6px;
+            padding: 4px 10px;
+            background: #dc3545;
+            color: white;
+            font-size: 12px;
+            border-radius: 4px;
+            white-space: nowrap;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .date-picker-tooltip::before {
+            content: '';
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 5px solid transparent;
+            border-bottom-color: #dc3545;
+        }
+
+        .date-picker.invalid ~ .date-picker-tooltip {
+            display: block;
+        }
+
         .timezone-grid {
             margin-top: 24px;
             background: white;
@@ -743,7 +783,10 @@
                         placeholder="Search city or timezone (e.g., New York, PST, Europe/London)">
                     <div class="autocomplete-dropdown" data-testid="autocomplete-dropdown"></div>
                 </div>
-                <input type="date" class="date-picker" data-testid="date-picker">
+                <div class="date-picker-container">
+                    <input type="date" class="date-picker" data-testid="date-picker">
+                    <div class="date-picker-tooltip" data-testid="date-picker-tooltip">Invalid date</div>
+                </div>
             </div>
         </header>
         <div class="timezone-grid" data-testid="timezone-grid">
@@ -1899,12 +1942,19 @@
                     if (datePicker.value !== newVal) {
                         datePicker.value = newVal;
                     }
+                    datePicker.classList.remove('invalid');
                 });
             };
 
             const handleChange = (e) => {
-                const date = new Date(e.target.value + 'T00:00:00');
-                AppState.setSelectedDate(date);
+                const val = e.target.value;
+                const date = val ? new Date(val + 'T00:00:00') : null;
+                if (date && !isNaN(date.getTime())) {
+                    datePicker.classList.remove('invalid');
+                    AppState.setSelectedDate(date);
+                } else {
+                    datePicker.classList.add('invalid');
+                }
             };
 
             return { init };
