@@ -260,8 +260,7 @@
         .hour-grids-inner {
             display: flex;
             flex-direction: column;
-            min-width: max-content;
-            max-width: 960px; /* 24 hours × 40px */
+            width: 960px; /* 24 hours × 40px - fixed width prevents whitespace */
         }
 
         .hour-grid {
@@ -728,7 +727,7 @@
                 grid-template-rows: repeat(24, auto);
                 grid-auto-flow: column;
                 grid-auto-columns: minmax(100px, 1fr);
-                min-width: unset;
+                width: auto; /* Override fixed width from horizontal mode */
                 column-gap: 1px;
                 background-color: #eee;
             }
@@ -1558,6 +1557,8 @@
                         if (currentMode !== previousMode) {
                             previousMode = currentMode;
                             render(AppState.getState());
+                            // Wait for CSS media query to apply before updating line
+                            setTimeout(updateCurrentTimeLine, 50);
                         } else {
                             // Just update the line position
                             updateCurrentTimeLine();

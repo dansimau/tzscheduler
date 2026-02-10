@@ -1204,7 +1204,7 @@ test.describe('Vertical layout - portrait mobile', () => {
 
     // Resize to vertical/mobile mode
     await page.setViewportSize({ width: 400, height: 800 });
-    await page.waitForTimeout(200); // Wait for debounced resize handler
+    await page.waitForTimeout(250); // Wait for debounced resize handler + CSS media query
 
     // Line should still be visible
     await expect(currentTimeLine).toBeVisible();
@@ -1216,7 +1216,7 @@ test.describe('Vertical layout - portrait mobile', () => {
     expect(verticalBox!.width).toBeGreaterThan(50);
   });
 
-  test('grid has max-width to prevent whitespace in wide viewports', async ({ page }) => {
+  test('grid has fixed width to prevent whitespace in wide viewports', async ({ page }) => {
     // Switch to wide viewport
     await page.setViewportSize({ width: 1600, height: 800 });
     await page.waitForTimeout(150);
@@ -1228,8 +1228,16 @@ test.describe('Vertical layout - portrait mobile', () => {
     // Check its computed width
     const width = await hourGridsInner.evaluate((el) => el.offsetWidth);
 
-    // Width should be capped at 960px (24 hours × 40px)
-    expect(width).toBeLessThanOrEqual(960);
+    // Width should be exactly 960px (24 hours × 40px) to prevent whitespace
+    expect(width).toBe(960);
+
+    // Verify container doesn't have extra whitespace
+    const container = page.locator('.hour-grids-container');
+    const containerWidth = await container.evaluate((el) => el.offsetWidth);
+    const scrollWidth = await container.evaluate((el) => el.scrollWidth);
+
+    // scrollWidth should not exceed offsetWidth by more than 1px (rounding)
+    expect(scrollWidth).toBeLessThanOrEqual(containerWidth + 1);
   });
 });
 
