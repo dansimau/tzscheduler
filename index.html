@@ -2319,9 +2319,19 @@
             let touchHoldTimer = null;
             let touchHoldActive = false;
 
+            // Auto-scroll state for touch-hold drag
+            let autoScrollRAF = null;
+            let autoScrollDir = 0;       // -1 up, 0 none, +1 down
+            let autoScrollSpeed = 0;
+
             const HOLD_THRESHOLD_MS = 300;
             const MOVE_CANCEL_PX = 10;
             let suppressClick = false;
+
+            // Auto-scroll config for touch-hold drag in vertical mode
+            const AUTO_SCROLL_EDGE_PX = 60;   // px from viewport edge to trigger scroll
+            const AUTO_SCROLL_MIN_PX = 2;     // min scroll px/frame (~120px/s at 60fps)
+            const AUTO_SCROLL_MAX_PX = 12;    // max scroll px/frame (~720px/s at 60fps)
 
             const init = () => {
                 hoverLine = document.querySelector('[data-testid="hover-time-line"]');
@@ -2335,7 +2345,7 @@
 
                 // Re-attach on orientation change
                 window.matchMedia('(max-width: 600px) and (orientation: portrait)')
-                    .addEventListener('change', () => { hideLine(); attachListeners(); });
+                    .addEventListener('change', () => { hideLine(); resetTouchState(); attachListeners(); });
             };
 
             const removeListenersFrom = (container) => {
@@ -2620,6 +2630,57 @@
                 }
             };
 
+            // Auto-scroll helpers for touch-hold drag
+            const computeAutoScroll = (clientY) => {
+                const vh = window.innerHeight;
+
+                // Account for sticky header at the top of the viewport
+                const stickyClone = document.querySelector('.sticky-header-clone');
+                const topOffset = stickyClone ? stickyClone.offsetHeight : 0;
+
+                const topEdge = topOffset + AUTO_SCROLL_EDGE_PX;
+                if (clientY < topEdge) {
+                    const depth = topEdge - clientY;
+                    const zone = AUTO_SCROLL_EDGE_PX + topOffset;
+                    const t = Math.min(1, depth / zone);
+                    return { dir: -1, speed: AUTO_SCROLL_MIN_PX + t * (AUTO_SCROLL_MAX_PX - AUTO_SCROLL_MIN_PX) };
+                }
+                if (clientY > vh - AUTO_SCROLL_EDGE_PX) {
+                    const depth = clientY - (vh - AUTO_SCROLL_EDGE_PX);
+                    const t = Math.min(1, depth / AUTO_SCROLL_EDGE_PX);
+                    return { dir: 1, speed: AUTO_SCROLL_MIN_PX + t * (AUTO_SCROLL_MAX_PX - AUTO_SCROLL_MIN_PX) };
+                }
+                return { dir: 0, speed: 0 };
+            };
+
+            const autoScrollLoop = () => {
+                if (autoScrollDir === 0 || !touchHoldActive) {
+                    autoScrollRAF = null;
+                    return;
+                }
+                window.scrollBy(0, autoScrollDir * autoScrollSpeed);
+                if (lastClientX !== null && lastClientY !== null) {
+                    const info = getSnapInfo(lastClientX, lastClientY);
+                    showLine(info);
+                }
+                autoScrollRAF = requestAnimationFrame(autoScrollLoop);
+            };
+
+            const startAutoScroll = () => {
+                if (autoScrollRAF === null) {
+                    autoScrollRAF = requestAnimationFrame(autoScrollLoop);
+                }
+            };
+
+            const stopAutoScroll = () => {
+                autoScrollDir = 0;
+                autoScrollSpeed = 0;
+                if (autoScrollRAF !== null) {
+                    cancelAnimationFrame(autoScrollRAF);
+                    autoScrollRAF = null;
+                }
+            };
+
             // Touch handling
             const resetTouchState = () => {
                 if (touchHoldTimer) {
@@ -2629,6 +2690,7 @@
                 touchHoldActive = false;
                 touchStartX = null;
                 touchStartY = null;
+                stopAutoScroll();
             };
 
             const handleTouchStart = (e) => {
@@ -2669,9 +2731,20 @@
                 lastClientY = touch.clientY;
                 const info = getSnapInfo(touch.clientX, touch.clientY);
                 showLine(info);
+
+                // Auto-scroll when dragging near viewport edges (vertical mode only)
+                if (isVerticalMode()) {
+                    const { dir, speed } = computeAutoScroll(touch.clientY);
+                    autoScrollDir = dir;
+                    autoScrollSpeed = speed;
+                    if (dir !== 0) {
+                        startAutoScroll();
+                    }
+                }
             };
 
             const handleTouchEnd = () => {
+                stopAutoScroll();
                 if (touchHoldActive && lastClientX !== null && lastClientY !== null) {
                     const info = getSnapInfo(lastClientX, lastClientY);
                     if (info) {
@@ -2683,6 +2756,7 @@
             };
 
             const handleTouchCancel = () => {
+                stopAutoScroll();
                 hideLine();
                 resetTouchState();
             };
