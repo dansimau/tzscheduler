@@ -571,6 +571,165 @@
             padding: 8px;
         }
 
+        /* Settings Button */
+        .settings-btn {
+            padding: 10px;
+            font-size: 14px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            background: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+            transition: border-color 0.2s, color 0.2s;
+            height: 40px;
+            width: 40px;
+        }
+
+        .settings-btn:hover {
+            border-color: #0066cc;
+            color: #0066cc;
+        }
+
+        /* Settings Modal */
+        .settings-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+            padding: 20px;
+        }
+
+        .settings-overlay.visible {
+            display: flex;
+        }
+
+        .settings-modal {
+            background: white;
+            border-radius: 12px;
+            max-width: 400px;
+            width: 100%;
+            max-height: 80vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .settings-header {
+            padding: 16px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .settings-header h2 {
+            font-size: 18px;
+            color: #333;
+        }
+
+        .settings-close {
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: #f0f0f0;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+        }
+
+        .settings-close:hover {
+            background: #e0e0e0;
+        }
+
+        .settings-content {
+            padding: 16px;
+        }
+
+        .settings-field {
+            margin-bottom: 16px;
+        }
+
+        .settings-field:last-child {
+            margin-bottom: 0;
+        }
+
+        .settings-field label {
+            display: block;
+            font-size: 14px;
+            color: #555;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+
+        .settings-select {
+            width: 100%;
+            padding: 10px 14px;
+            font-size: 14px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            outline: none;
+            background: white;
+            cursor: pointer;
+        }
+
+        .settings-select:focus {
+            border-color: #0066cc;
+        }
+
+        .settings-actions {
+            padding: 16px;
+            border-top: 1px solid #eee;
+            display: flex;
+            gap: 12px;
+        }
+
+        .settings-btn-action {
+            flex: 1;
+            padding: 12px 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .settings-btn-action.primary {
+            background: #0066cc;
+            color: white;
+        }
+
+        .settings-btn-action.primary:hover {
+            background: #0052a3;
+        }
+
+        .settings-btn-action.secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .settings-btn-action.secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .settings-error {
+            color: #dc3545;
+            font-size: 13px;
+            margin-top: 8px;
+        }
         @media (max-width: 600px) and (orientation: portrait) {
 
             /* 1. Single scroll container for header + grid */
@@ -787,6 +946,12 @@
                     <input type="date" class="date-picker" data-testid="date-picker">
                     <div class="date-picker-tooltip" data-testid="date-picker-tooltip">Invalid date</div>
                 </div>
+                <button class="settings-btn" data-testid="settings-btn" title="Settings" aria-label="Settings">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                    </svg>
+                </button>
             </div>
         </header>
         <div class="timezone-grid" data-testid="timezone-grid">
@@ -813,6 +978,30 @@
             <div class="time-summary-actions">
                 <button class="time-summary-btn secondary" data-testid="time-summary-close-btn">Close</button>
                 <button class="time-summary-btn primary" data-testid="time-summary-copy">Copy to Clipboard</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="settings-overlay" data-testid="settings-overlay">
+        <div class="settings-modal" data-testid="settings-modal">
+            <div class="settings-header">
+                <h2>Settings</h2>
+                <button class="settings-close" data-testid="settings-close">&times;</button>
+            </div>
+            <div class="settings-content">
+                <div class="settings-field">
+                    <label for="work-hours-start">Work hours start</label>
+                    <select id="work-hours-start" class="settings-select" data-testid="work-hours-start"></select>
+                </div>
+                <div class="settings-field">
+                    <label for="work-hours-end">Work hours end</label>
+                    <select id="work-hours-end" class="settings-select" data-testid="work-hours-end"></select>
+                </div>
+            </div>
+            <div class="settings-actions">
+                <button class="settings-btn-action secondary" data-testid="settings-cancel-btn">Cancel</button>
+                <button class="settings-btn-action primary" data-testid="settings-save-btn">Save</button>
             </div>
         </div>
     </div>
@@ -1159,11 +1348,12 @@
         // ==================== App State Module ====================
         const AppState = (() => {
             const STORAGE_KEY = 'timescheduler_timezones';
+            const SETTINGS_KEY = 'timescheduler_settings';
 
             let state = {
                 timezones: [],
                 selectedDate: new Date(),
-                workHours: { start: 8, end: 17 },
+                workHours: { start: 9, end: 18 },
                 selectedHourIndex: null
             };
 
@@ -1205,6 +1395,35 @@
                 }
             };
 
+            const loadSettingsFromStorage = () => {
+                try {
+                    const saved = localStorage.getItem(SETTINGS_KEY);
+                    if (saved) {
+                        const settings = JSON.parse(saved);
+                        if (typeof settings.workHoursStart === 'number' &&
+                            typeof settings.workHoursEnd === 'number' &&
+                            settings.workHoursStart >= 0 && settings.workHoursStart <= 23 &&
+                            settings.workHoursEnd >= 0 && settings.workHoursEnd <= 23 &&
+                            settings.workHoursStart < settings.workHoursEnd) {
+                            state.workHours = { start: settings.workHoursStart, end: settings.workHoursEnd };
+                        }
+                    }
+                } catch (e) {
+                    console.error('Failed to load settings from storage:', e);
+                }
+            };
+
+            const saveSettingsToStorage = () => {
+                try {
+                    localStorage.setItem(SETTINGS_KEY, JSON.stringify({
+                        workHoursStart: state.workHours.start,
+                        workHoursEnd: state.workHours.end
+                    }));
+                } catch (e) {
+                    console.error('Failed to save settings to storage:', e);
+                }
+            };
+
             // ---- URL state persistence ----
 
             let isHandlingPopState = false;
@@ -1233,6 +1452,9 @@
                     const dd = String(d.getDate()).padStart(2, '0');
                     parts.push(`date=${yyyy}-${mm}-${dd}`);
                 }
+                if (st.workHours.start !== 9 || st.workHours.end !== 18) {
+                    parts.push(`work=${st.workHours.start}-${st.workHours.end}`);
+                }
                 return parts.length > 0 ? `?${parts.join('&')}` : window.location.pathname;
             };
 
@@ -1244,6 +1466,18 @@
                 const dateParam = params.get('date');
                 if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
                     selectedDate = new Date(dateParam + 'T00:00:00');
+                }
+
+                // Parse work hours
+                let workHours = null;
+                const workParam = params.get('work');
+                if (workParam && /^\d{1,2}-\d{1,2}$/.test(workParam)) {
+                    const [startStr, endStr] = workParam.split('-');
+                    const start = parseInt(startStr, 10);
+                    const end = parseInt(endStr, 10);
+                    if (start >= 0 && start <= 23 && end >= 0 && end <= 23 && start < end) {
+                        workHours = { start, end };
+                    }
                 }
 
                 // Parse timezones
@@ -1280,9 +1514,9 @@
                     if (timezones.length === 0) timezones = null;
                 }
 
-                if (timezones === null && selectedDate === null) return null;
+                if (timezones === null && selectedDate === null && workHours === null) return null;
 
-                return { timezones, selectedDate };
+                return { timezones, selectedDate, workHours };
             };
 
             const syncToURL = () => {
@@ -1306,8 +1540,14 @@
                     state.selectedDate = urlState.selectedDate !== null
                         ? urlState.selectedDate
                         : new Date();
+                    if (urlState.workHours !== null) {
+                        state.workHours = urlState.workHours;
+                    } else {
+                        loadSettingsFromStorage();
+                    }
                 } else {
                     loadFromStorage();
+                    loadSettingsFromStorage();
                     state.selectedDate = new Date();
                 }
                 lastURL = encodeStateToURL(state);
@@ -1326,9 +1566,16 @@
                     if (urlState.selectedDate !== null) {
                         state.selectedDate = urlState.selectedDate;
                     }
+                    if (urlState.workHours !== null) {
+                        state.workHours = urlState.workHours;
+                        saveSettingsToStorage();
+                    } else {
+                        loadSettingsFromStorage();
+                    }
                     saveToStorage();
                 } else {
                     loadFromStorage();
+                    loadSettingsFromStorage();
                 }
                 notify();
             };
@@ -1376,6 +1623,12 @@
                 notify();
             };
 
+            const setWorkHours = (start, end) => {
+                state.workHours = { start, end };
+                saveSettingsToStorage();
+                notify();
+            };
+
             const getState = () => state;
 
             const getReferenceTimezone = () => {
@@ -1392,6 +1645,7 @@
                 moveTimezone,
                 setSelectedDate,
                 setSelectedHourIndex,
+                setWorkHours,
                 getState,
                 getReferenceTimezone
             };
@@ -1960,6 +2214,95 @@
             return { init };
         })();
 
+        // ==================== Settings Modal ====================
+        const SettingsModal = (() => {
+            let overlay;
+            let startSelect;
+            let endSelect;
+            let saveButton;
+            let cancelButton;
+            let closeButton;
+
+            const formatHour = (hour) => {
+                if (hour === 0) return '12:00 AM';
+                if (hour < 12) return `${hour}:00 AM`;
+                if (hour === 12) return '12:00 PM';
+                return `${hour - 12}:00 PM`;
+            };
+
+            const populateSelect = (select, selectedValue) => {
+                select.innerHTML = '';
+                for (let h = 0; h < 24; h++) {
+                    const option = document.createElement('option');
+                    option.value = h;
+                    option.textContent = formatHour(h);
+                    if (h === selectedValue) option.selected = true;
+                    select.appendChild(option);
+                }
+            };
+
+            const init = () => {
+                overlay = document.querySelector('[data-testid="settings-overlay"]');
+                startSelect = document.querySelector('[data-testid="work-hours-start"]');
+                endSelect = document.querySelector('[data-testid="work-hours-end"]');
+                saveButton = document.querySelector('[data-testid="settings-save-btn"]');
+                cancelButton = document.querySelector('[data-testid="settings-cancel-btn"]');
+                closeButton = document.querySelector('[data-testid="settings-close"]');
+
+                const settingsBtn = document.querySelector('[data-testid="settings-btn"]');
+                settingsBtn.addEventListener('click', show);
+
+                overlay.addEventListener('click', (e) => {
+                    if (e.target === overlay) hide();
+                });
+                closeButton.addEventListener('click', hide);
+                cancelButton.addEventListener('click', hide);
+                saveButton.addEventListener('click', save);
+
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape' && overlay.classList.contains('visible')) {
+                        hide();
+                    }
+                });
+            };
+
+            const show = () => {
+                const state = AppState.getState();
+                populateSelect(startSelect, state.workHours.start);
+                populateSelect(endSelect, state.workHours.end);
+                const existingError = overlay.querySelector('.settings-error');
+                if (existingError) existingError.remove();
+                overlay.classList.add('visible');
+            };
+
+            const hide = () => {
+                overlay.classList.remove('visible');
+            };
+
+            const save = () => {
+                const start = parseInt(startSelect.value, 10);
+                const end = parseInt(endSelect.value, 10);
+
+                if (start >= end) {
+                    let errorEl = overlay.querySelector('.settings-error');
+                    if (!errorEl) {
+                        errorEl = document.createElement('div');
+                        errorEl.className = 'settings-error';
+                        errorEl.setAttribute('data-testid', 'settings-error');
+                        const content = overlay.querySelector('.settings-content');
+                        content.appendChild(errorEl);
+                    }
+                    errorEl.textContent = 'Start hour must be before end hour';
+                    return;
+                }
+
+                AppState.setWorkHours(start, end);
+                hide();
+            };
+
+            return { init, show, hide };
+        })();
+
         // ==================== Hover Line Controller ====================
         const HoverLineController = (() => {
             let hoverLine;
@@ -2441,6 +2784,7 @@
             SearchComponent.init();
             GridRenderer.init();
             DatePickerComponent.init();
+            SettingsModal.init();
             TimeSummaryModal.init();
             HoverLineController.init();
             StickyHeaderController.init();

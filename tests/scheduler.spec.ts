@@ -158,15 +158,15 @@ test.describe('Time display', () => {
     await expect(hourCells).toHaveCount(24);
   });
 
-  test('highlights work hours (8-17) in green', async ({ page }) => {
+  test('highlights work hours (9-18) in green', async ({ page }) => {
     await addTimezone(page, 'UTC');
 
-    // Count work hour cells (hours 8-16 inclusive = 9 cells)
+    // Count work hour cells (hours 9-17 inclusive = 9 cells)
     const workHourCells = page.locator('[data-testid="hour-cell"][data-work-hour="true"]');
     await expect(workHourCells.first()).toBeVisible();
     const count = await workHourCells.count();
 
-    // Work hours are 8, 9, 10, 11, 12, 13, 14, 15, 16 = 9 cells
+    // Work hours are 9, 10, 11, 12, 13, 14, 15, 16, 17 = 9 cells
     expect(count).toBe(9);
   });
 
@@ -1472,5 +1472,181 @@ test.describe('Invalid date handling', () => {
     await expect(datePicker).not.toHaveClass(/invalid/);
     const tooltip = page.getByTestId('date-picker-tooltip');
     await expect(tooltip).not.toBeVisible();
+  });
+});
+
+test.describe('Settings modal and custom work hours', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.evaluate(() => localStorage.clear());
+    await page.reload();
+  });
+
+  test('settings button is visible', async ({ page }) => {
+    const settingsBtn = page.getByTestId('settings-btn');
+    await expect(settingsBtn).toBeVisible();
+  });
+
+  test('clicking settings button opens settings modal', async ({ page }) => {
+    await page.getByTestId('settings-btn').click();
+    await expect(page.getByTestId('settings-overlay')).toBeVisible();
+    await expect(page.getByTestId('settings-modal')).toBeVisible();
+  });
+
+  test('settings modal shows current work hours', async ({ page }) => {
+    await page.getByTestId('settings-btn').click();
+    await expect(page.getByTestId('work-hours-start')).toHaveValue('9');
+    await expect(page.getByTestId('work-hours-end')).toHaveValue('18');
+  });
+
+  test('closing settings modal via close button', async ({ page }) => {
+    await page.getByTestId('settings-btn').click();
+    const overlay = page.getByTestId('settings-overlay');
+    await expect(overlay).toBeVisible();
+    await page.getByTestId('settings-close').click();
+    await expect(overlay).not.toBeVisible();
+  });
+
+  test('closing settings modal via cancel button', async ({ page }) => {
+    await page.getByTestId('settings-btn').click();
+    const overlay = page.getByTestId('settings-overlay');
+    await expect(overlay).toBeVisible();
+    await page.getByTestId('settings-cancel-btn').click();
+    await expect(overlay).not.toBeVisible();
+  });
+
+  test('closing settings modal via Escape key', async ({ page }) => {
+    await page.getByTestId('settings-btn').click();
+    const overlay = page.getByTestId('settings-overlay');
+    await expect(overlay).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(overlay).not.toBeVisible();
+  });
+
+  test('closing settings modal via overlay click', async ({ page }) => {
+    await page.getByTestId('settings-btn').click();
+    const overlay = page.getByTestId('settings-overlay');
+    await expect(overlay).toBeVisible();
+    await overlay.click({ position: { x: 10, y: 10 } });
+    await expect(overlay).not.toBeVisible();
+  });
+
+  test('saving custom work hours updates grid', async ({ page }) => {
+    await addTimezone(page, 'UTC');
+
+    await page.getByTestId('settings-btn').click();
+    await page.getByTestId('work-hours-start').selectOption('10');
+    await page.getByTestId('work-hours-end').selectOption('16');
+    await page.getByTestId('settings-save-btn').click();
+
+    await expect(page.getByTestId('settings-overlay')).not.toBeVisible();
+
+    // Work hours 10-16: hours 10, 11, 12, 13, 14, 15 = 6 cells
+    const workHourCells = page.locator('[data-testid="hour-cell"][data-work-hour="true"]');
+    const count = await workHourCells.count();
+    expect(count).toBe(6);
+  });
+
+  test('validation prevents start >= end', async ({ page }) => {
+    await page.getByTestId('settings-btn').click();
+    await page.getByTestId('work-hours-start').selectOption('15');
+    await page.getByTestId('work-hours-end').selectOption('10');
+    await page.getByTestId('settings-save-btn').click();
+
+    await expect(page.getByTestId('settings-overlay')).toBeVisible();
+    const error = page.getByTestId('settings-error');
+    await expect(error).toBeVisible();
+    await expect(error).toContainText('Start hour must be before end hour');
+  });
+
+  test('validation prevents start equal to end', async ({ page }) => {
+    await page.getByTestId('settings-btn').click();
+    await page.getByTestId('work-hours-start').selectOption('12');
+    await page.getByTestId('work-hours-end').selectOption('12');
+    await page.getByTestId('settings-save-btn').click();
+
+    await expect(page.getByTestId('settings-overlay')).toBeVisible();
+    await expect(page.getByTestId('settings-error')).toBeVisible();
+  });
+
+  test('work hours persist to localStorage', async ({ page }) => {
+    await addTimezone(page, 'UTC');
+
+    await page.getByTestId('settings-btn').click();
+    await page.getByTestId('work-hours-start').selectOption('7');
+    await page.getByTestId('work-hours-end').selectOption('15');
+    await page.getByTestId('settings-save-btn').click();
+
+    await page.reload();
+
+    // Work hours 7-15: hours 7, 8, 9, 10, 11, 12, 13, 14 = 8 cells
+    const workHourCells = page.locator('[data-testid="hour-cell"][data-work-hour="true"]');
+    await expect(workHourCells.first()).toBeVisible();
+    const count = await workHourCells.count();
+    expect(count).toBe(8);
+  });
+
+  test('work hours persist to URL', async ({ page }) => {
+    await addTimezone(page, 'UTC');
+
+    await page.getByTestId('settings-btn').click();
+    await page.getByTestId('work-hours-start').selectOption('7');
+    await page.getByTestId('work-hours-end').selectOption('15');
+    await page.getByTestId('settings-save-btn').click();
+
+    await expect(page).toHaveURL(/work=7-15/);
+  });
+
+  test('default work hours do not appear in URL', async ({ page }) => {
+    await addTimezone(page, 'UTC');
+    const url = page.url();
+    expect(url).not.toContain('work=');
+  });
+
+  test('URL loads custom work hours', async ({ page }) => {
+    await page.goto('/?tz=UTC:Etc/UTC&work=6-14');
+
+    // Work hours 6-14: hours 6, 7, 8, 9, 10, 11, 12, 13 = 8 cells
+    const workHourCells = page.locator('[data-testid="hour-cell"][data-work-hour="true"]');
+    await expect(workHourCells.first()).toBeVisible();
+    const count = await workHourCells.count();
+    expect(count).toBe(8);
+  });
+
+  test('invalid work hours in URL fall back to defaults', async ({ page }) => {
+    await page.goto('/?tz=UTC:Etc/UTC&work=20-5');
+
+    // Invalid (start > end), should fall back to 9-18 defaults (9 cells)
+    const workHourCells = page.locator('[data-testid="hour-cell"][data-work-hour="true"]');
+    await expect(workHourCells.first()).toBeVisible();
+    const count = await workHourCells.count();
+    expect(count).toBe(9);
+  });
+
+  test('cancel does not apply changes', async ({ page }) => {
+    await addTimezone(page, 'UTC');
+
+    await page.getByTestId('settings-btn').click();
+    await page.getByTestId('work-hours-start').selectOption('6');
+    await page.getByTestId('work-hours-end').selectOption('10');
+    await page.getByTestId('settings-cancel-btn').click();
+
+    // Should still have default 9-18 = 9 work hour cells
+    const workHourCells = page.locator('[data-testid="hour-cell"][data-work-hour="true"]');
+    const count = await workHourCells.count();
+    expect(count).toBe(9);
+  });
+
+  test('settings modal pre-fills with current custom values on reopen', async ({ page }) => {
+    await addTimezone(page, 'UTC');
+
+    await page.getByTestId('settings-btn').click();
+    await page.getByTestId('work-hours-start').selectOption('7');
+    await page.getByTestId('work-hours-end').selectOption('15');
+    await page.getByTestId('settings-save-btn').click();
+
+    await page.getByTestId('settings-btn').click();
+    await expect(page.getByTestId('work-hours-start')).toHaveValue('7');
+    await expect(page.getByTestId('work-hours-end')).toHaveValue('15');
   });
 });
