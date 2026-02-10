@@ -1420,3 +1420,215 @@ test.describe('Mobile header bug fixes', () => {
     await expect(hoverLine).toBeVisible();
   });
 });
+
+test.describe('Auto-scroll during touch-hold drag', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto('/');
+    await page.evaluate(() => localStorage.clear());
+    await page.reload();
+    await page.setViewportSize({ width: 375, height: 667 });
+
+    await addTimezone(page, 'New York');
+    await addTimezone(page, 'Tokyo');
+    await addTimezone(page, 'London');
+
+    await expect(page.getByTestId('timezone-info')).toHaveCount(3);
+  });
+
+  test('auto-scrolls down when dragging near bottom viewport edge', async ({ page }) => {
+    // Ensure page is at the top
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForTimeout(50);
+
+    // Get a cell in the visible area to start the touch
+    const hourCell = page.getByTestId('hour-cell').nth(5);
+    const box = await hourCell.boundingBox();
+    const x = box!.x + box!.width / 2;
+    const y = box!.y + box!.height / 2;
+
+    // Dispatch touchstart on .timezone-grid
+    await page.evaluate(({ x, y }) => {
+      const container = document.querySelector('[data-testid="timezone-grid"]')!;
+      const touch = new Touch({ identifier: 1, target: container, clientX: x, clientY: y });
+      container.dispatchEvent(new TouchEvent('touchstart', { touches: [touch], changedTouches: [touch], bubbles: true }));
+    }, { x, y });
+
+    // Wait for hold activation
+    await page.waitForTimeout(350);
+
+    const hoverLine = page.getByTestId('hover-time-line');
+    await expect(hoverLine).toBeVisible();
+
+    // Drag near the bottom viewport edge to trigger auto-scroll
+    const bottomEdgeY = 667 - 20;
+    await page.evaluate(({ x, bottomEdgeY }) => {
+      const container = document.querySelector('[data-testid="timezone-grid"]')!;
+      const touch = new Touch({ identifier: 1, target: container, clientX: x, clientY: bottomEdgeY });
+      container.dispatchEvent(new TouchEvent('touchmove', { touches: [touch], changedTouches: [touch], bubbles: true }));
+    }, { x, bottomEdgeY });
+
+    // Wait for auto-scroll frames to accumulate
+    await page.waitForTimeout(500);
+
+    // Verify page scrolled down
+    const scrollY = await page.evaluate(() => window.scrollY);
+    expect(scrollY).toBeGreaterThan(0);
+
+    // Hover line should still be visible during scroll
+    await expect(hoverLine).toBeVisible();
+
+    // Clean up
+    await page.evaluate(({ x, bottomEdgeY }) => {
+      const container = document.querySelector('[data-testid="timezone-grid"]')!;
+      const touch = new Touch({ identifier: 1, target: container, clientX: x, clientY: bottomEdgeY });
+      container.dispatchEvent(new TouchEvent('touchend', { touches: [], changedTouches: [touch], bubbles: true }));
+    }, { x, bottomEdgeY });
+  });
+
+  test('auto-scrolls up when dragging near top viewport edge', async ({ page }) => {
+    // Scroll down first so we have room to scroll up
+    await page.evaluate(() => window.scrollTo(0, 300));
+    await page.waitForTimeout(50);
+
+    const initialScrollY = await page.evaluate(() => window.scrollY);
+    expect(initialScrollY).toBeGreaterThan(0);
+
+    // Get a visible cell to start the touch
+    const hourCell = page.getByTestId('hour-cell').nth(10);
+    const box = await hourCell.boundingBox();
+    const x = box!.x + box!.width / 2;
+    const y = box!.y + box!.height / 2;
+
+    // Dispatch touchstart
+    await page.evaluate(({ x, y }) => {
+      const container = document.querySelector('[data-testid="timezone-grid"]')!;
+      const touch = new Touch({ identifier: 1, target: container, clientX: x, clientY: y });
+      container.dispatchEvent(new TouchEvent('touchstart', { touches: [touch], changedTouches: [touch], bubbles: true }));
+    }, { x, y });
+
+    await page.waitForTimeout(350);
+
+    // Drag near the top viewport edge
+    const topEdgeY = 20;
+    await page.evaluate(({ x, topEdgeY }) => {
+      const container = document.querySelector('[data-testid="timezone-grid"]')!;
+      const touch = new Touch({ identifier: 1, target: container, clientX: x, clientY: topEdgeY });
+      container.dispatchEvent(new TouchEvent('touchmove', { touches: [touch], changedTouches: [touch], bubbles: true }));
+    }, { x, topEdgeY });
+
+    // Wait for auto-scroll frames
+    await page.waitForTimeout(500);
+
+    // Verify page scrolled up
+    const finalScrollY = await page.evaluate(() => window.scrollY);
+    expect(finalScrollY).toBeLessThan(initialScrollY);
+
+    // Clean up
+    await page.evaluate(({ x, topEdgeY }) => {
+      const container = document.querySelector('[data-testid="timezone-grid"]')!;
+      const touch = new Touch({ identifier: 1, target: container, clientX: x, clientY: topEdgeY });
+      container.dispatchEvent(new TouchEvent('touchend', { touches: [], changedTouches: [touch], bubbles: true }));
+    }, { x, topEdgeY });
+  });
+
+  test('auto-scroll stops when finger moves away from edge', async ({ page }) => {
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForTimeout(50);
+
+    const hourCell = page.getByTestId('hour-cell').nth(5);
+    const box = await hourCell.boundingBox();
+    const x = box!.x + box!.width / 2;
+    const y = box!.y + box!.height / 2;
+
+    // Activate touch hold
+    await page.evaluate(({ x, y }) => {
+      const container = document.querySelector('[data-testid="timezone-grid"]')!;
+      const touch = new Touch({ identifier: 1, target: container, clientX: x, clientY: y });
+      container.dispatchEvent(new TouchEvent('touchstart', { touches: [touch], changedTouches: [touch], bubbles: true }));
+    }, { x, y });
+
+    await page.waitForTimeout(350);
+
+    // Drag to bottom edge to start scrolling
+    const bottomEdgeY = 667 - 20;
+    await page.evaluate(({ x, bottomEdgeY }) => {
+      const container = document.querySelector('[data-testid="timezone-grid"]')!;
+      const touch = new Touch({ identifier: 1, target: container, clientX: x, clientY: bottomEdgeY });
+      container.dispatchEvent(new TouchEvent('touchmove', { touches: [touch], changedTouches: [touch], bubbles: true }));
+    }, { x, bottomEdgeY });
+
+    // Let it scroll for a bit
+    await page.waitForTimeout(300);
+
+    // Move finger to center of viewport (away from edges)
+    const centerY = 333;
+    await page.evaluate(({ x, centerY }) => {
+      const container = document.querySelector('[data-testid="timezone-grid"]')!;
+      const touch = new Touch({ identifier: 1, target: container, clientX: x, clientY: centerY });
+      container.dispatchEvent(new TouchEvent('touchmove', { touches: [touch], changedTouches: [touch], bubbles: true }));
+    }, { x, centerY });
+
+    // Wait a moment for the scroll loop to self-terminate
+    await page.waitForTimeout(100);
+
+    // Capture scroll position after stopping
+    const scrollAfterStop = await page.evaluate(() => window.scrollY);
+
+    // Wait more and verify scroll hasn't changed
+    await page.waitForTimeout(300);
+    const scrollLater = await page.evaluate(() => window.scrollY);
+    expect(scrollLater).toBe(scrollAfterStop);
+
+    // Clean up
+    await page.evaluate(({ x, centerY }) => {
+      const container = document.querySelector('[data-testid="timezone-grid"]')!;
+      const touch = new Touch({ identifier: 1, target: container, clientX: x, clientY: centerY });
+      container.dispatchEvent(new TouchEvent('touchend', { touches: [], changedTouches: [touch], bubbles: true }));
+    }, { x, centerY });
+  });
+
+  test('auto-scroll does not activate in horizontal/landscape mode', async ({ page }) => {
+    // Switch to landscape mode
+    await page.setViewportSize({ width: 667, height: 375 });
+    await page.waitForTimeout(200);
+
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForTimeout(50);
+
+    const hourCell = page.getByTestId('hour-cell').nth(5);
+    const box = await hourCell.boundingBox();
+    const x = box!.x + box!.width / 2;
+    const y = box!.y + box!.height / 2;
+
+    // Activate touch hold on .hour-grids-container (horizontal mode container)
+    await page.evaluate(({ x, y }) => {
+      const container = document.querySelector('.hour-grids-container')!;
+      const touch = new Touch({ identifier: 1, target: container, clientX: x, clientY: y });
+      container.dispatchEvent(new TouchEvent('touchstart', { touches: [touch], changedTouches: [touch], bubbles: true }));
+    }, { x, y });
+
+    await page.waitForTimeout(350);
+
+    // Drag near bottom edge
+    const bottomEdgeY = 375 - 20;
+    await page.evaluate(({ x, bottomEdgeY }) => {
+      const container = document.querySelector('.hour-grids-container')!;
+      const touch = new Touch({ identifier: 1, target: container, clientX: x, clientY: bottomEdgeY });
+      container.dispatchEvent(new TouchEvent('touchmove', { touches: [touch], changedTouches: [touch], bubbles: true }));
+    }, { x, bottomEdgeY });
+
+    await page.waitForTimeout(500);
+
+    // Verify no page scroll occurred
+    const scrollY = await page.evaluate(() => window.scrollY);
+    expect(scrollY).toBe(0);
+
+    // Clean up
+    await page.evaluate(({ x, bottomEdgeY }) => {
+      const container = document.querySelector('.hour-grids-container')!;
+      const touch = new Touch({ identifier: 1, target: container, clientX: x, clientY: bottomEdgeY });
+      container.dispatchEvent(new TouchEvent('touchend', { touches: [], changedTouches: [touch], bubbles: true }));
+    }, { x, bottomEdgeY });
+  });
+});
