@@ -129,6 +129,11 @@
             border-color: #0066cc;
         }
 
+        .date-picker.invalid {
+            border-color: #dc3545;
+            box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.25);
+        }
+
         .timezone-grid {
             margin-top: 24px;
             background: white;
@@ -1958,12 +1963,22 @@
                     if (datePicker.value !== newVal) {
                         datePicker.value = newVal;
                     }
+                    datePicker.classList.remove('invalid');
+                    datePicker.title = '';
                 });
             };
 
             const handleChange = (e) => {
-                const date = new Date(e.target.value + 'T00:00:00');
-                AppState.setSelectedDate(date);
+                const val = e.target.value;
+                const date = val ? new Date(val + 'T00:00:00') : null;
+                if (date && !isNaN(date.getTime())) {
+                    datePicker.classList.remove('invalid');
+                    datePicker.title = '';
+                    AppState.setSelectedDate(date);
+                } else {
+                    datePicker.classList.add('invalid');
+                    datePicker.title = 'Invalid date';
+                }
             };
 
             return { init };
