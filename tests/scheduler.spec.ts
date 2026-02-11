@@ -635,6 +635,12 @@ test.describe('Mobile behavior', () => {
     const hourGridsContainer = page.getByTestId('hour-grids-container');
     await expect(hourGridsContainer).toBeVisible();
 
+    // Wait for the container to be scrollable (content wider than viewport)
+    await page.waitForFunction(() => {
+      const el = document.querySelector('[data-testid="hour-grids-container"]');
+      return el && el.scrollWidth > el.clientWidth;
+    });
+
     // Scroll the container horizontally
     await hourGridsContainer.evaluate((el) => {
       el.scrollLeft = 200;
