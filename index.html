@@ -177,6 +177,7 @@
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
             overflow: hidden;
             position: relative;
+            display: inline-block;
         }
 
         .timezone-grid-wrapper {
@@ -731,11 +732,13 @@
             font-size: 13px;
             margin-top: 8px;
         }
+
         @media (max-width: 600px) and (orientation: portrait) {
 
             /* 1. Single scroll container for header + grid */
             .timezone-grid {
                 overflow-x: auto;
+                display: block;
             }
 
             .timezone-grid-wrapper {
