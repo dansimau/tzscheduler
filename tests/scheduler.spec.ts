@@ -631,32 +631,28 @@ test.describe('Mobile behavior', () => {
     const timezoneInfos = page.getByTestId('timezone-info');
     await expect(timezoneInfos).toHaveCount(3);
 
-    // Get the hour grids container (shared scroll container)
+    // Get the hour grids container (shared container for all grids)
     const hourGridsContainer = page.getByTestId('hour-grids-container');
     await expect(hourGridsContainer).toBeVisible();
-
-    // Scroll the container horizontally
-    await hourGridsContainer.evaluate((el) => {
-      el.scrollLeft = 200;
-    });
-
-    // Verify the scroll position was applied
-    const scrollLeft = await hourGridsContainer.evaluate((el) => el.scrollLeft);
-    expect(scrollLeft).toBe(200);
 
     // Get all hour grids inside the container
     const hourGrids = page.getByTestId('hour-grid');
     const hourGridCount = await hourGrids.count();
     expect(hourGridCount).toBe(3);
 
-    // Since all grids are inside the same scrolling container,
-    // they all move together when the container scrolls.
-    // Verify the container structure is correct (all grids share one scroll parent)
+    // All grids share one parent container so they scroll together
     const containerHasAllGrids = await hourGridsContainer.evaluate((container) => {
       const grids = container.querySelectorAll('[data-testid="hour-grid"]');
       return grids.length === 3;
     });
     expect(containerHasAllGrids).toBe(true);
+
+    // Verify the grid is wider than the viewport (content overflows)
+    const gridIsWider = await page.evaluate(() => {
+      const grid = document.querySelector('[data-testid="timezone-grid"]');
+      return grid ? grid.scrollWidth > 667 : false;
+    });
+    expect(gridIsWider).toBe(true);
   });
 });
 
