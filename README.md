@@ -10,9 +10,13 @@ A simple timezone comparison tool for scheduling meetings across multiple timezo
 ## Features
 
 - Search by city name, timezone abbreviation (PST, CET, etc.), or IANA timezone
-- Visual 24-hour grid with work hours (8am-5pm) highlighted
+- Visual 24-hour grid with configurable work hours highlighted
+- Precision time selection with hover line and 15-minute snapping
 - Current time indicator
 - Tap any hour to get a copyable summary of times in all timezones
+- Drag handles to reorder timezones
+- URL state persistence — share a link with your current timezones and date
+- Sticky timezone header on mobile portrait
 - Synchronized scrolling on mobile devices
 - Persists your timezones in localStorage
 
